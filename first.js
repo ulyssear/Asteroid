@@ -1,3 +1,7 @@
+
+
+let paused = false
+
 const canvas = document.querySelector('canvas');
 const ctx = canvas.getContext('2d');
 
@@ -527,6 +531,19 @@ let controls = {
         keys: ['Enter', ' '],
         action: ship.fire
     },
+    'pause': {
+        keys: ['p'],
+        action: () => {
+            paused = !paused
+        },
+        canOnPause: true
+    }
+}
+
+
+for (let key in controls) {
+    controls[key].canOnPause = controls[key].canOnPause ?? false
+    controls[key].lastTimeUsed = null
 }
 
 let keysPressed = {}
@@ -542,6 +559,7 @@ window.addEventListener('keydown', (e) => {
 })
 
 
+
 let lastTime = Date.now();
 const draw = () => {
 
@@ -549,13 +567,29 @@ const draw = () => {
         for (let keyPressed in keysPressed) {
             for (let control in controls) {
                 if (controls[control].keys.includes(keyPressed)) {
-                    controls[control].action.bind(ship)()
+                    if (!paused || (paused && controls[control].canOnPause)){
+                        if ('pause' === control) {
+                            // if the lastTimeUsed was not 1 second so dont execute the action
+                            if (Date.now() - controls[control].lastTimeUsed > 100) {
+                                controls[control].action.bind(ship)()
+                                controls[control].lastTimeUsed = Date.now()
+                            }
+                        }
+                        else {
+                            controls[control].action.bind(ship)()
+                        }
+                    }
                 }
             }
         }
     }
     catch (e) {
         console.error(e)
+    }
+
+    if (paused) {
+        setTimeout(()=>requestAnimationFrame(draw), 1)
+        return
     }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
