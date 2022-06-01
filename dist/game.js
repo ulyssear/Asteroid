@@ -1,1 +1,691 @@
-(()=>{Array.prototype.chunk=function(e){var t=this;return[].concat.apply([],t.map(function(o,i){return i%e?[]:[t.slice(i,i+e)]}))};Array.prototype.chunkWithExtremums=function(e,t){return this.length%e<=t?this.chunkWithExtremums(t,e-1):this.chunk(e)};var _=!1,x=!0,v=13,I=!1,A=!1,n=document.querySelector("canvas"),r=n.getContext("2d"),S=new Audio("sounds/ship_fire.wav"),U=new Audio("sounds/ship_explosion.wav"),z=new Audio("sounds/explosion.wav");n.width=n.offsetWidth;n.height=n.offsetHeight;var w=class{static DEFAULT(){return{name:"Un nom",position:[n.width/2,n.height/2],points:[],clones:{left:!1,right:!1,top:!1,bottom:!1},velocity:null,rotationVelocity:null,rotation:null,size:30,color:"white",friction:.965,isClone:!1,mayCollapse:!1}}constructor(t={}){t=Object.assign(P.DEFAULT(),t);for(let o in t)this[o]=t[o];this.id=this.id??Math.random().toString(16).slice(3)}setColor(t){this.color=t}},P=class extends w{static DEFAULT(){return{name:"Joueur",speed:0,bullets:[],canFire:!0,canRotate:!0,velocity:[0,0]}}constructor(t={}){super(t),t={...w.DEFAULT(),...P.DEFAULT(),...t};for(let o in t)this[o]=t[o];this.points=[[-this.size/3,this.size/3],[0,-this.size/2],[this.size/3,this.size/3]],this.rotation=-90,this.draw()}draw(){W(this);try{this.bullets.forEach(t=>{if(t.move(),B(t.position)){this.bullets.splice(this.bullets.indexOf(t),1);return}t.draw()})}catch(t){console.error(t)}}rotateLeft(){if(!this.canRotate)return;let t=4;this.rotationVelocity=-t*Math.PI/180,this.rotation=(this.rotation-t)%360,C(this)}rotateRight(){if(!this.canRotate)return;let t=4;this.rotationVelocity=t*Math.PI/180,this.rotation=(this.rotation+t)%360,C(this)}accelerate(){this.speed+=.45,this.velocity=[this.speed*Math.cos(this.rotation*Math.PI/180),this.speed*Math.sin(this.rotation*Math.PI/180)];let t=5*10;this.velocity=[Math.round(this.velocity[0]*t)/t,Math.round(this.velocity[1]*t)/t],this.speed=Math.round(this.speed*t)/t}move(){let[t,o]=this.velocity.map(i=>i*this.friction);this.position=T([this.position],this.velocity)[0],this.speed*=this.friction,this.velocity=[Math.round(t*1e3)/1e3,Math.round(o*1e3)/1e3],this.speed=Math.round(this.speed*1e3)/1e3,this.speed<.02&&(this.speed=0,this.velocity=[0,0])}fire(){if(!this.canFire)return;this.canFire=!1;let t,{position:o,rotation:i}=this;t=new k({position:o,rotation:i}),this.bullets.push(t),K()}explode(){this.isDead||tt(),this.isDead=!0,this.canFire=!1,this.canRotate=!1,A=!0}},k=class extends w{static DEFAULT(){return{friction:1,speed:5,points:[[0,0]]}}constructor(t={}){super(t),t={...w.DEFAULT(),...k.DEFAULT(),...t};for(let o in t)this[o]=t[o];this.velocity=[Math.cos(this.rotation*Math.PI/180)*this.speed,Math.sin(this.rotation*Math.PI/180)*this.speed],this.draw()}move(){this.position=T([this.position],this.velocity)[0],this.velocity=this.velocity.map(t=>t*this.friction),this.speed=Math.sqrt(this.velocity[0]**2+this.velocity[1]**2)}draw(){let[t,o]=this.position;r.fillStyle="#ffffff",r.beginPath(),r.arc(t,o,2,0,Math.PI*2),r.fill()}},y=class extends w{static DEFAULT(){return{friction:1,size:null,position:null,rotation:null,velocity:null}}constructor(t={}){super(t),t={...w.DEFAULT(),...y.DEFAULT(),...t};for(let o in t)this[o]=t[o];this.size=this.size??Math.floor(Math.random()*8+5),this.angle=this.angle??Math.random()*360,this.position=this.position??[Math.round(Math.random()*(n.width-400)+200),Math.round(Math.random()*(n.height-400)+200)],this.rotation=this.rotation??Math.floor(Math.random()*360),this.velocity=this.velocity??[Math.cos(this.rotation*Math.PI/180)*1,Math.sin(this.rotation*Math.PI/180)*1],this.rotationVelocity=this.rotationVelocity??6e-4,this.points=1>this.points.length||!this.points?this.createPoints():this.points,this.clones=this.clones??{left:!1,right:!1,top:!1,bottom:!1}}createPoints(){let t=[],{angle:o,size:i}=this,s=360/this.size;for(let h=0;h<this.size;h++){let l=o+s*h,c=Math.cos(l*Math.PI/180)*i*6.5-Math.cos(l*Math.PI/180)*Math.random()*this.size*3.45,a=Math.sin(l*Math.PI/180)*i*6.5-Math.sin(l*Math.PI/180)*Math.random()*this.size*3.45;t.push([c,a])}return t}move(){this.position=T([this.position],this.velocity)[0],this.rotate()}explode(){if(this.size>12){let{position:t}=this,o=j([...this.points]).chunkWithExtremums(12,7);o=o.map(s=>[[0,0],...s]).map(s=>s.map(h=>[h[0]+t[0],h[1]+t[1]]));let i=o.map(s=>J(s));o=o.map((s,h)=>s.map(l=>[l[0]-i[h][0],l[1]-i[h][1]])),o=o.map(s=>j(s));for(let s=0;s<o.length;s++){let h=new y({size:Math.ceil(this.size/o.length),points:o[s],position:i[s],rotation:this.rotation,rotationVelocity:this.rotationVelocity,velocity:D(this.velocity,360/o.length*s)});b.push(h)}}N(),b.splice(b.indexOf(this),1)}draw(){try{W(this)}catch(t){console.log(t)}}rotate(){this.points=this.points.map(t=>D(t,this.rotationVelocity))}static generate(t=1,o=[]){if(t>0){let i=new y;return!1?y.generate(t,o):(o.push(i),y.generate(t-1,o))}return o}static generateAt(t,o){let i=[];for(let s=0;s<t;s++){let h=new y({position:o});i.push(h)}return i}};function Y(e){let t=e.clones??{left:!1,right:!1,top:!1,bottom:!1,d_top_left:!1,d_top_right:!1,d_bottom_left:!1,d_bottom_right:!1},[o,i]=e.position;for(let s=0;s<e.points.length;s++){let[h,l]=e.points[s],c={left:h+o<=0,right:h+o>=n.width,top:l+i<=0,bottom:l+i>=n.height};if(Object.values(c).reduce((a,u)=>a||u))for(let a in c)c[a]&&(t[a]=c[a])}t.left&&t.top&&(t.d_top_left=!0),t.right&&t.top&&(t.d_top_right=!0),t.left&&t.bottom&&(t.d_bottom_left=!0),t.right&&t.bottom&&(t.d_bottom_right=!0),e.clones=t}function H([e,t],[o,i],[s,h],l){r.beginPath(),r.moveTo(o+e,i+t),r.lineTo(s+e,h+t),r.strokeStyle=l,r.stroke()}function Q(e,[t,o],i){r.beginPath(),r.arc(t,o,e/2,0,2*Math.PI),r.fillStyle=i,r.fill()}function T(e,[t,o]){return e.map(([i,s])=>[i+t,s+o])}function X(e){let{clones:t,position:o,points:i}=e,[s,h]=o;if(Object.values(t).includes(!0)){let l=Object.keys(t).find(p=>t[p]),[c,a]={left:[n.width,0],right:[-n.width,0],top:[0,n.height],bottom:[0,-n.height],d_top_left:[n.width,n.height],d_top_right:[-n.width,n.height],d_bottom_left:[n.width,-n.height],d_bottom_right:[-n.width,-n.height]}[l];i.map(([p,d])=>[p+s,d+h]).map(B).reduce((p,d)=>p&&d)&&(e.position=T([o],[c,a])[0],e.clones[l]=!1)}}function q(e){let t={},o={left:[n.width,0],right:[-n.width,0],top:[0,n.height],bottom:[0,-n.height],d_top_left:[n.width,n.height],d_top_right:[-n.width,n.height],d_bottom_left:[n.width,-n.height],d_bottom_right:[-n.width,-n.height]};for(let i in o)e.clones[i]&&(t[i]=T([e.position],o[i])[0]);return t}function C(e){e.points=Z(e.points,e.rotationVelocity)}function Z(e,t=0){return e.map(o=>D(o,t))}function D([e,t],o=0){return[e*Math.cos(o)-t*Math.sin(o),e*Math.sin(o)+t*Math.cos(o)].map(i=>Math.floor(i*1e3)/1e3)}function W(e){try{e.move(),Y(e),X(e),R(e);let t=q(e);for(let o in t){let i=t[o];R({...e,position:i})}}catch(t){console.error(t)}}function R(e){let{rotation:t,position:o,speed:i}=e,[s,h]=o;o.length!==2&&console.debug({another_position:o}),r.beginPath(),x&&(r.moveTo(...o),r.lineTo(s+Math.cos(t*Math.PI/180)*(2*i),h+Math.sin(t*Math.PI/180)*(2*i)),r.strokeStyle="red",r.lineWidth=2,r.stroke()),r.lineJoin="round",r.lineCap="round";for(let l=0;l<e.points.length;l++){let[c,a]=e.points[l],[u,p]=e.points[(l+1)%e.points.length];H(o,[c,a],[u,p],e.color),x&&Q(3,[c+s,a+h],"red")}}function B([e,t]){return e<0||e>n.width||t<0||t>n.height}function V(e,t){let[o,i]=e.position,[s,h]=t.position;e.mayCollapse=!0,t.mayCollapse=!0;let l=e.points.map(([a,u])=>[a+o,u+i]),c=t.points.map(([a,u])=>[a+s,u+h]);l.length===1&&l.push([l[0][0]+e.velocity[0],l[0][1]+e.velocity[1]]),c.length===1&&c.push([c[0][0]+t.velocity[0],c[0][1]+t.velocity[1]]);for(let a=0;a<l.length;a++){let u=l[a].map((d,m)=>d+e.velocity[m]),p=l[(a+1)%l.length].map((d,m)=>d+e.velocity[m]);for(let d=0;d<c.length;d++){let m=c[d].map((M,O)=>M+t.velocity[O]),E=c[(d+1)%c.length].map((M,O)=>M+t.velocity[O]);if(G(u,p,m,E))return!0}return e.mayCollapse=!1,t.mayCollapse=!1,!1}return!1}function G(e,t,o,i){let[s,h]=e,[l,c]=t,[a,u]=o,[p,d]=i,m=(d-u)*(l-s)-(p-a)*(c-h);if(m==0)return!1;let E=((p-a)*(h-u)-(d-u)*(s-a))/m,M=((l-s)*(h-u)-(c-h)*(s-a))/m;return E>=0&&E<=1&&M>=0&&M<=1}function J(e){let t=0,o=0;for(let[i,s]of e)t+=i,o+=s;return[t/e.length,o/e.length]}function j(e){let t=J(e);return e.sort((o,i)=>{let[s,h]=o,[l,c]=i,a=Math.atan2(h-t[1],s-t[0]),u=Math.atan2(c-t[1],l-t[0]);return a-u})}function K(){S.currentTime=0,S.play()}function N(){z.currentTime=0,z.volume=.5,z.play()}function tt(){U.currentTime=0,U.play()}var f=new P,b=y.generate(0),g={"rotate left":{keys:["ArrowLeft","q","Q"],action:f.rotateLeft},"rotate right":{keys:["ArrowRight","d","D"],action:f.rotateRight},accelerate:{keys:["ArrowUp","z","Z"],action:f.accelerate},fire:{keys:["Enter"," "],action:f.fire},pause:{keys:["p"],action:()=>{_=!_},canOnPause:!0},debug:{keys:["m","M"],action:()=>{x=!x},canOnPause:!0},tab:{keys:["Tab"],action:()=>{I=!I}}};for(let e in g)g[e].canOnPause=g[e].canOnPause??!1,g[e].lastTimeUsed=null;var F={};window.addEventListener("keyup",e=>{delete F[e.key],!A&&g.fire.keys.every(t=>!Object.keys(F).includes(t))&&(f.canFire=!0)});window.addEventListener("keydown",e=>{F[e.key]=!0});window.addEventListener("wheel",e=>{x&&(e.deltaY>0?v=Math.max(v-1,8):v=Math.min(v+1,32))});n.addEventListener("click",e=>{let t=n.getBoundingClientRect(),o=e.clientX-t.left,i=e.clientY-t.top;b.push(new y({position:[o,i],size:v}))});var $=Date.now(),L=()=>{try{for(let e in F)for(let t in g)g[t].keys.includes(e)&&(!_||_&&g[t].canOnPause)&&(["pause","debug"].includes(t)?Date.now()-g[t].lastTimeUsed>100&&(g[t].action.bind(f)(),g[t].lastTimeUsed=Date.now()):g[t].action.bind(f)())}catch(e){console.error(e)}if(_){requestAnimationFrame(L);return}r.clearRect(0,0,n.width,n.height),b.forEach(e=>{let t=[e];t.push(...Object.values(q(e)).map(o=>({...e,position:o}))),t.forEach(o=>{V(f,o)&&f.explode(),f.bullets.forEach(i=>{V(i,o)&&(e.explode(),f.bullets.splice(f.bullets.indexOf(i),1))})}),e.draw()}),A&&f.velocity!==[0,0]&&(f.speed=0,f.velocity=[0,0],f.rotationVelocity=0),f.isDead||f.draw(),x&&(r.font="24px VT323",r.fillStyle="white",r.fillText(`FPS: ${Math.round(1e3/(Date.now()-$))}`,10,20),r.fillStyle="white",r.font="13px VT323",r.fillText(`${f.position}`,10,40),r.fillText(`${f.speed}`,10,55),f.bullets[0]&&r.fillText(`${f.bullets[0].position}`,10,70),r.fillText(`Asteroids : ${b.length}`,10,85),r.fillText(`Selected Size : ${v}`,10,100)),$=Date.now(),requestAnimationFrame(L)};L();})();
+(() => {
+  // src/game.js
+  Array.prototype.chunk = function(chunkSize) {
+    var array = this;
+    return [].concat.apply([], array.map(function(elem, i) {
+      return i % chunkSize ? [] : [array.slice(i, i + chunkSize)];
+    }));
+  };
+  Array.prototype.chunkWithExtremums = function(max, min) {
+    const notRespectExpremum = this.length % max <= min;
+    if (notRespectExpremum)
+      return this.chunkWithExtremums(min, max - 1);
+    return this.chunk(max);
+  };
+  var paused = false;
+  var debug = true;
+  var debug_selected_asteroid_size = 13;
+  var showStats = false;
+  var animation_dying = false;
+  var canvas = document.querySelector("canvas");
+  var ctx = canvas.getContext("2d");
+  var soundShipFire = new Audio("sounds/ship_fire.wav");
+  var soundShipExplosion = new Audio("sounds/ship_explosion.wav");
+  var soundAsteroidExplosion = new Audio("sounds/explosion.wav");
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  var Entity = class {
+    static DEFAULT() {
+      return {
+        name: "Un nom",
+        position: [
+          canvas.width / 2,
+          canvas.height / 2
+        ],
+        points: [],
+        lines: [],
+        clones: {
+          left: false,
+          right: false,
+          top: false,
+          bottom: false
+        },
+        velocity: null,
+        rotationVelocity: null,
+        rotation: null,
+        size: 30,
+        color: "white",
+        friction: 0.965,
+        isClone: false,
+        mayCollapse: false
+      };
+    }
+    constructor(params = {}) {
+      params = Object.assign(Ship.DEFAULT(), params);
+      for (let key in params)
+        this[key] = params[key];
+      this.id = this.id ?? Math.random().toString(16).slice(3);
+    }
+    setColor(color) {
+      this.color = color;
+    }
+  };
+  var Ship = class extends Entity {
+    static DEFAULT() {
+      return {
+        name: "Joueur",
+        speed: 0,
+        bullets: [],
+        canFire: true,
+        canRotate: true,
+        velocity: [0, 0]
+      };
+    }
+    constructor(params = {}) {
+      super(params);
+      params = {
+        ...Entity.DEFAULT(),
+        ...Ship.DEFAULT(),
+        ...params
+      };
+      for (let key in params)
+        this[key] = params[key];
+      this.points = [
+        [-this.size / 3, this.size / 3],
+        [0, -this.size / 2],
+        [this.size / 3, this.size / 3]
+      ];
+      this.lines = this.points.map((e, i) => [i, (i + 1) % this.points.length]);
+      this.rotation = -90;
+      this.draw();
+    }
+    draw() {
+      drawEntity(this);
+      try {
+        this.bullets.forEach((bullet) => {
+          bullet.move();
+          if (isOutOfCanvas(bullet.position)) {
+            this.bullets.splice(this.bullets.indexOf(bullet), 1);
+            return;
+          }
+          bullet.draw();
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    rotateLeft() {
+      if (!this.canRotate)
+        return;
+      const angle = 4;
+      this.rotationVelocity = -angle * Math.PI / 180;
+      this.rotation = (this.rotation - angle) % 360;
+      rotate(this);
+    }
+    rotateRight() {
+      if (!this.canRotate)
+        return;
+      const angle = 4;
+      this.rotationVelocity = angle * Math.PI / 180;
+      this.rotation = (this.rotation + angle) % 360;
+      rotate(this);
+    }
+    accelerate() {
+      this.speed += 0.45;
+      this.velocity = [this.speed * Math.cos(this.rotation * Math.PI / 180), this.speed * Math.sin(this.rotation * Math.PI / 180)];
+      const decimals = 5 * 10;
+      this.velocity = [Math.round(this.velocity[0] * decimals) / decimals, Math.round(this.velocity[1] * decimals) / decimals];
+      this.speed = Math.round(this.speed * decimals) / decimals;
+    }
+    move() {
+      let [vx, vy] = this.velocity.map((e) => e * this.friction);
+      this.position = translatePoints([this.position], this.velocity)[0];
+      this.speed *= this.friction;
+      this.velocity = [Math.round(vx * 1e3) / 1e3, Math.round(vy * 1e3) / 1e3];
+      this.speed = Math.round(this.speed * 1e3) / 1e3;
+      if (this.speed < 0.02) {
+        this.speed = 0;
+        this.velocity = [0, 0];
+      }
+    }
+    fire() {
+      if (!this.canFire)
+        return;
+      this.canFire = false;
+      let bullet;
+      const { position, rotation } = this;
+      bullet = new Bullet({ position, rotation });
+      this.bullets.push(bullet);
+      playSoundShipFire();
+    }
+    explode() {
+      if (!this.isDead)
+        playSoundShipExplosion();
+      this.isDead = true;
+      this.canFire = false;
+      this.canRotate = false;
+      animation_dying = true;
+    }
+  };
+  var Bullet = class extends Entity {
+    static DEFAULT() {
+      return {
+        friction: 1,
+        speed: 5,
+        points: [[0, 0]]
+      };
+    }
+    constructor(params = {}) {
+      super(params);
+      params = {
+        ...Entity.DEFAULT(),
+        ...Bullet.DEFAULT(),
+        ...params
+      };
+      for (let key in params)
+        this[key] = params[key];
+      this.velocity = [Math.cos(this.rotation * Math.PI / 180) * this.speed, Math.sin(this.rotation * Math.PI / 180) * this.speed];
+      this.draw();
+    }
+    move() {
+      this.position = translatePoints([this.position], this.velocity)[0];
+      this.velocity = this.velocity.map((e) => e * this.friction);
+      this.speed = Math.sqrt(this.velocity[0] ** 2 + this.velocity[1] ** 2);
+    }
+    draw() {
+      const [x, y] = this.position;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+  var Asteroid = class extends Entity {
+    static DEFAULT() {
+      return {
+        friction: 1,
+        size: null,
+        position: null,
+        rotation: null,
+        velocity: null
+      };
+    }
+    constructor(params = {}) {
+      super(params);
+      params = {
+        ...Entity.DEFAULT(),
+        ...Asteroid.DEFAULT(),
+        ...params
+      };
+      for (let key in params)
+        this[key] = params[key];
+      this.size = this.size ?? Math.floor(Math.random() * 8 + 5);
+      this.angle = this.angle ?? Math.random() * 360;
+      this.position = this.position ?? [Math.round(Math.random() * (canvas.width - 400) + 200), Math.round(Math.random() * (canvas.height - 400) + 200)];
+      this.rotation = this.rotation ?? Math.floor(Math.random() * 360);
+      this.velocity = this.velocity ?? [Math.cos(this.rotation * Math.PI / 180) * 1, Math.sin(this.rotation * Math.PI / 180) * 1];
+      this.rotationVelocity = this.rotationVelocity ?? 6e-4;
+      this.points = 1 > this.points.length || !this.points ? this.createPoints() : this.points;
+      this.lines = this.points.map((e, i) => [i, (i + 1) % this.points.length]);
+      this.clones = this.clones ?? {
+        left: false,
+        right: false,
+        top: false,
+        bottom: false
+      };
+    }
+    createPoints() {
+      const points = [];
+      const { angle, size } = this;
+      const angleStep = 360 / this.size;
+      for (let i = 0; i < this.size; i++) {
+        const _angle = angle + angleStep * i;
+        const _x = Math.cos(_angle * Math.PI / 180) * size * 6.5 - Math.cos(_angle * Math.PI / 180) * Math.random() * this.size * 3.45;
+        const _y = Math.sin(_angle * Math.PI / 180) * size * 6.5 - Math.sin(_angle * Math.PI / 180) * Math.random() * this.size * 3.45;
+        points.push([_x, _y]);
+      }
+      return points;
+    }
+    move() {
+      this.position = translatePoints([this.position], this.velocity)[0];
+      this.rotate();
+    }
+    explode() {
+      const { lines, size, position, points, rotation, rotationVelocity, velocity } = this;
+      if (size > 11) {
+        let _lines = [...lines].chunk(Math.ceil(size / getNumberChunk(6, size, 6)));
+        let _points = _lines.map((line) => line.map((point) => point.map((i) => points[i])).flat()).map((line) => [[0, 0], ...line]).map((line) => line.map((point) => translatePoints([position], point)[0]));
+        let _centers = _points.map((e) => getCenterPolygon(e));
+        _points = _points.map((e, i) => translatePoints(e, [-_centers[i][0], -_centers[i][1]]));
+        console.debug({ _points });
+        for (let i = 0; i < _points.length; i++) {
+          const _asteroid = new Asteroid({
+            size: Math.ceil(size / _points.length),
+            points: _points[i],
+            position: _centers[i],
+            rotation,
+            rotationVelocity,
+            velocity: rotatePoint(velocity, 360 / _points.length * i)
+          });
+          asteroids.push(_asteroid);
+        }
+      }
+      playSoundAsteroidExplosion();
+      asteroids.splice(asteroids.indexOf(this), 1);
+    }
+    old_explode() {
+      if (this.size > 13) {
+        const { position } = this;
+        let _points = sortPoints([...this.points]).chunkWithExtremums(10, 6);
+        _points = _points.map((points) => [[0, 0], ...points]).map((points) => points.map((point) => [point[0] + position[0], point[1] + position[1]]));
+        const _centers = _points.map((points) => getCenterPolygon(points));
+        _points = _points.map((points, i) => points.map((point) => [point[0] - _centers[i][0], point[1] - _centers[i][1]]));
+        _points = _points.map((points) => sortPoints(points));
+        for (let i = 0; i < _points.length; i++) {
+          const _asteroid = new Asteroid({
+            size: Math.ceil(this.size / _points.length),
+            points: _points[i],
+            position: _centers[i],
+            rotation: this.rotation,
+            rotationVelocity: this.rotationVelocity,
+            velocity: rotatePoint(this.velocity, 360 / _points.length * i)
+          });
+          asteroids.push(_asteroid);
+        }
+      }
+      playSoundAsteroidExplosion();
+      asteroids.splice(asteroids.indexOf(this), 1);
+    }
+    draw() {
+      try {
+        drawEntity(this);
+      } catch (error) {
+        console.log(error);
+      }
+    }
+    rotate() {
+      this.points = this.points.map((point) => rotatePoint(point, this.rotationVelocity));
+    }
+    static generate(n = 1, asteroids2 = []) {
+      if (n > 0) {
+        const asteroid = new Asteroid();
+        const isColliding = false;
+        if (!isColliding) {
+          asteroids2.push(asteroid);
+          return Asteroid.generate(n - 1, asteroids2);
+        }
+        return Asteroid.generate(n, asteroids2);
+      }
+      return asteroids2;
+    }
+    static generateAt(n, position) {
+      const asteroids2 = [];
+      for (let i = 0; i < n; i++) {
+        const asteroid = new Asteroid({ position });
+        asteroids2.push(asteroid);
+      }
+      return asteroids2;
+    }
+  };
+  function getNumberChunk(n, size, min) {
+    if (n <= 1)
+      return 1;
+    let byChunk = Math.ceil(size / n);
+    let rest = size % byChunk;
+    console.debug({ byChunk, rest, n });
+    if (byChunk < min || rest !== 0 && rest < min)
+      return getNumberChunk(n - 1, size, min);
+    if (rest === 0)
+      return n;
+    return n;
+  }
+  function checkBoundaries(entity) {
+    const clones = entity.clones ?? {
+      left: false,
+      right: false,
+      top: false,
+      bottom: false,
+      d_top_left: false,
+      d_top_right: false,
+      d_bottom_left: false,
+      d_bottom_right: false
+    };
+    const [cx, cy] = entity.position;
+    for (let i = 0; i < entity.points.length; i++) {
+      const [x0, y0] = entity.points[i];
+      const bounds = {
+        left: x0 + cx <= 0,
+        right: x0 + cx >= canvas.width,
+        top: y0 + cy <= 0,
+        bottom: y0 + cy >= canvas.height
+      };
+      if (Object.values(bounds).reduce((a, b) => a || b)) {
+        for (let bound in bounds)
+          if (bounds[bound])
+            clones[bound] = bounds[bound];
+      }
+    }
+    if (clones.left && clones.top)
+      clones.d_top_left = true;
+    if (clones.right && clones.top)
+      clones.d_top_right = true;
+    if (clones.left && clones.bottom)
+      clones.d_bottom_left = true;
+    if (clones.right && clones.bottom)
+      clones.d_bottom_right = true;
+    entity.clones = clones;
+  }
+  function drawLine([cx, cy], [x1, y1], [x2, y2], color) {
+    ctx.beginPath();
+    ctx.moveTo(x1 + cx, y1 + cy);
+    ctx.lineTo(x2 + cx, y2 + cy);
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  }
+  function drawPoint(size, [x, y], color) {
+    ctx.beginPath();
+    ctx.arc(x, y, size / 2, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+  function translatePoints(points, [dx, dy]) {
+    return points.map(([x, y]) => [x + dx, y + dy]);
+  }
+  function updateOutOfBounds(entity) {
+    const { clones, position, points } = entity;
+    const [cx, cy] = position;
+    if (Object.values(clones).includes(true)) {
+      const key = Object.keys(clones).find((key2) => clones[key2]);
+      const [dx, dy] = {
+        left: [canvas.width, 0],
+        right: [-canvas.width, 0],
+        top: [0, canvas.height],
+        bottom: [0, -canvas.height],
+        d_top_left: [canvas.width, canvas.height],
+        d_top_right: [-canvas.width, canvas.height],
+        d_bottom_left: [canvas.width, -canvas.height],
+        d_bottom_right: [-canvas.width, -canvas.height]
+      }[key];
+      const isFullyOutOfBounds = points.map(([x, y]) => [x + cx, y + cy]).map(isOutOfCanvas).reduce((a, b) => a && b);
+      if (isFullyOutOfBounds) {
+        entity.position = translatePoints([position], [dx, dy])[0];
+        entity.clones[key] = false;
+      }
+    }
+  }
+  function getClonesPositions(entity) {
+    let clonesPositions = {};
+    const translations = {
+      left: [canvas.width, 0],
+      right: [-canvas.width, 0],
+      top: [0, canvas.height],
+      bottom: [0, -canvas.height],
+      d_top_left: [canvas.width, canvas.height],
+      d_top_right: [-canvas.width, canvas.height],
+      d_bottom_left: [canvas.width, -canvas.height],
+      d_bottom_right: [-canvas.width, -canvas.height]
+    };
+    for (const bound in translations) {
+      if (entity.clones[bound]) {
+        clonesPositions[bound] = translatePoints([entity.position], translations[bound])[0];
+      }
+    }
+    return clonesPositions;
+  }
+  function rotate(entity) {
+    entity.points = genericRotate(entity.points, entity.rotationVelocity);
+  }
+  function genericRotate(points, rotationVelocity = 0) {
+    return points.map((point) => rotatePoint(point, rotationVelocity));
+  }
+  function rotatePoint([x, y], rotation = 0) {
+    return [x * Math.cos(rotation) - y * Math.sin(rotation), x * Math.sin(rotation) + y * Math.cos(rotation)].map((e) => Math.floor(e * 1e3) / 1e3);
+  }
+  function drawEntity(entity) {
+    try {
+      entity.move();
+      checkBoundaries(entity);
+      updateOutOfBounds(entity);
+      _drawEntity(entity);
+      const clonesPositions = getClonesPositions(entity);
+      for (const bound in clonesPositions) {
+        const position = clonesPositions[bound];
+        _drawEntity({ ...entity, position });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+  function _drawEntity(entity) {
+    const { rotation, position, speed } = entity;
+    const [x, y] = position;
+    if (position.length !== 2)
+      console.debug({ another_position: position });
+    ctx.beginPath();
+    if (debug) {
+      ctx.moveTo(...position);
+      ctx.lineTo(x + Math.cos(rotation * Math.PI / 180) * (2 * speed), y + Math.sin(rotation * Math.PI / 180) * (2 * speed));
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    for (let i = 0; i < entity.points.length; i++) {
+      const [x1, y1] = entity.points[i];
+      const [x2, y2] = entity.points[(i + 1) % entity.points.length];
+      drawLine(position, [x1, y1], [x2, y2], entity.color);
+      if (debug)
+        drawPoint(3, [x1 + x, y1 + y], "red");
+    }
+  }
+  function isOutOfCanvas([x, y]) {
+    return x < 0 || x > canvas.width || y < 0 || y > canvas.height;
+  }
+  function collision(entity1, entity2) {
+    const [x1, y1] = entity1.position;
+    const [x2, y2] = entity2.position;
+    entity1.mayCollapse = true;
+    entity2.mayCollapse = true;
+    const points1 = entity1.points.map(([x, y]) => [x + x1, y + y1]);
+    const points2 = entity2.points.map(([x, y]) => [x + x2, y + y2]);
+    if (points1.length === 1) {
+      points1.push([points1[0][0] + entity1.velocity[0], points1[0][1] + entity1.velocity[1]]);
+    }
+    if (points2.length === 1) {
+      points2.push([points2[0][0] + entity2.velocity[0], points2[0][1] + entity2.velocity[1]]);
+    }
+    for (let i = 0; i < points1.length; i++) {
+      const point1a = points1[i].map((e, i2) => e + entity1.velocity[i2]);
+      const point1b = points1[(i + 1) % points1.length].map((e, i2) => e + entity1.velocity[i2]);
+      for (let j = 0; j < points2.length; j++) {
+        const point2a = points2[j].map((e, i2) => e + entity2.velocity[i2]);
+        const point2b = points2[(j + 1) % points2.length].map((e, i2) => e + entity2.velocity[i2]);
+        if (isIntersecting(point1a, point1b, point2a, point2b)) {
+          return true;
+        }
+      }
+      entity1.mayCollapse = false;
+      entity2.mayCollapse = false;
+      return false;
+    }
+    return false;
+  }
+  function isIntersecting(point1, point2, point3, point4) {
+    const [x1, y1] = point1;
+    const [x2, y2] = point2;
+    const [x3, y3] = point3;
+    const [x4, y4] = point4;
+    const denominator = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+    if (denominator == 0) {
+      return false;
+    }
+    const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denominator;
+    const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denominator;
+    return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
+  }
+  function getCenterPolygon(points) {
+    let x = 0;
+    let y = 0;
+    for (const [x1, y1] of points) {
+      x += x1;
+      y += y1;
+    }
+    return [x / points.length, y / points.length];
+  }
+  function sortPoints(points) {
+    const center = getCenterPolygon(points);
+    return points.sort((a, b) => {
+      const [x1, y1] = a;
+      const [x2, y2] = b;
+      const angle1 = Math.atan2(y1 - center[1], x1 - center[0]);
+      const angle2 = Math.atan2(y2 - center[1], x2 - center[0]);
+      return angle1 - angle2;
+    });
+  }
+  function playSoundShipFire() {
+    soundShipFire.currentTime = 0;
+    soundShipFire.play();
+  }
+  function playSoundAsteroidExplosion() {
+    soundAsteroidExplosion.currentTime = 0;
+    soundAsteroidExplosion.volume = 0.5;
+    soundAsteroidExplosion.play();
+  }
+  function playSoundShipExplosion() {
+    soundShipExplosion.currentTime = 0;
+    soundShipExplosion.play();
+  }
+  var ship = new Ship();
+  var asteroids = Asteroid.generate(0);
+  var controls = {
+    "rotate left": {
+      keys: ["ArrowLeft", "q", "Q"],
+      action: ship.rotateLeft
+    },
+    "rotate right": {
+      keys: ["ArrowRight", "d", "D"],
+      action: ship.rotateRight
+    },
+    "accelerate": {
+      keys: ["ArrowUp", "z", "Z"],
+      action: ship.accelerate
+    },
+    "fire": {
+      keys: ["Enter", " "],
+      action: ship.fire
+    },
+    "pause": {
+      keys: ["p"],
+      action: () => {
+        paused = !paused;
+      },
+      canOnPause: true
+    },
+    debug: {
+      keys: ["m", "M"],
+      action: () => {
+        debug = !debug;
+      },
+      canOnPause: true
+    },
+    tab: {
+      keys: ["Tab"],
+      action: () => {
+        showStats = !showStats;
+      }
+    }
+  };
+  for (let key in controls) {
+    controls[key].canOnPause = controls[key].canOnPause ?? false;
+    controls[key].lastTimeUsed = null;
+  }
+  var keysPressed = {};
+  window.addEventListener("keyup", (e) => {
+    delete keysPressed[e.key];
+    if (!animation_dying && controls.fire.keys.every((value) => !Object.keys(keysPressed).includes(value)))
+      ship.canFire = true;
+  });
+  window.addEventListener("keydown", (e) => {
+    keysPressed[e.key] = true;
+  });
+  window.addEventListener("wheel", (e) => {
+    if (debug) {
+      if (e.deltaY > 0) {
+        debug_selected_asteroid_size = Math.max(debug_selected_asteroid_size - 1, 8);
+      } else {
+        debug_selected_asteroid_size = Math.min(debug_selected_asteroid_size + 1, 32);
+      }
+    }
+  });
+  canvas.addEventListener("click", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    asteroids.push(new Asteroid({
+      position: [x, y],
+      size: debug_selected_asteroid_size
+    }));
+  });
+  var lastTime = Date.now();
+  var draw = () => {
+    try {
+      for (let keyPressed in keysPressed) {
+        for (let control in controls) {
+          if (controls[control].keys.includes(keyPressed)) {
+            if (!paused || paused && controls[control].canOnPause) {
+              if (["pause", "debug"].includes(control)) {
+                if (Date.now() - controls[control].lastTimeUsed > 100) {
+                  controls[control].action.bind(ship)();
+                  controls[control].lastTimeUsed = Date.now();
+                }
+              } else {
+                controls[control].action.bind(ship)();
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    if (paused) {
+      requestAnimationFrame(draw);
+      return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    asteroids.forEach((asteroid) => {
+      let _asteroids = [asteroid];
+      _asteroids.push(...Object.values(getClonesPositions(asteroid)).map((position) => {
+        return { ...asteroid, position };
+      }));
+      _asteroids.forEach((_asteroid) => {
+        if (collision(ship, _asteroid)) {
+          ship.explode();
+        }
+        ship.bullets.forEach((bullet) => {
+          if (collision(bullet, _asteroid)) {
+            asteroid.explode();
+            ship.bullets.splice(ship.bullets.indexOf(bullet), 1);
+          }
+        });
+      });
+      asteroid.draw();
+    });
+    if (animation_dying && ship.velocity !== [0, 0]) {
+      ship.speed = 0;
+      ship.velocity = [0, 0];
+      ship.rotationVelocity = 0;
+    }
+    if (!ship.isDead)
+      ship.draw();
+    if (debug) {
+      ctx.font = "24px VT323";
+      ctx.fillStyle = "white";
+      ctx.fillText(`FPS: ${Math.round(1e3 / (Date.now() - lastTime))}`, 10, 20);
+      ctx.fillStyle = "white";
+      ctx.font = "13px VT323";
+      ctx.fillText(`${ship.position}`, 10, 40);
+      ctx.fillText(`${ship.speed}`, 10, 55);
+      if (ship.bullets[0])
+        ctx.fillText(`${ship.bullets[0].position}`, 10, 70);
+      ctx.fillText(`Asteroids : ${asteroids.length}`, 10, 85);
+      ctx.fillText(`Selected Size : ${debug_selected_asteroid_size}`, 10, 100);
+    }
+    lastTime = Date.now();
+    requestAnimationFrame(draw);
+  };
+  draw();
+  window.ship = ship;
+  window.asteroids = asteroids;
+})();
