@@ -11,8 +11,18 @@ Array.prototype.chunk = function (chunkSize) {
     );
 }
 
+Array.prototype.chunkWithExtremums = function (max, min) {
+    // const array = this.chunk(max)
+    // const notRespectExpremum = array.map(e => e.length < min || e.length > max).reduce((a, b) => a || b)
+    const notRespectExpremum = (this.length % max) <= min
+    if (notRespectExpremum) return this.chunkWithExtremums(min, max - 1)
+    return this.chunk(max)
+}
+
 let paused = false
 let debug = true
+let debug_selected_asteroid_size = 13
+let showStats = false
 
 let animation_dying = false
 
@@ -106,6 +116,10 @@ class Ship extends Entity {
         try {
             // updates bullets
             this.bullets.forEach(bullet => {
+                /*if (animation_dying && bullet.velocity !== [0,0]) {
+                    bullet.velocity = [0,0]
+                }*/
+
                 bullet.move()
                 if (isOutOfCanvas(bullet.position)) {
                     this.bullets.splice(this.bullets.indexOf(bullet), 1)
@@ -282,12 +296,12 @@ class Asteroid extends Entity {
 
 
     explode() {
-        if (this.size/2 > 6) {
+        if (this.size > 12) {
             const {position} = this
-            let _points = sortPoints([...this.points]).chunk( 6 )
+            let _points = sortPoints([...this.points]).chunkWithExtremums( 12, 7 )
 
             // for each chunk of _points, add the last point of the previous chunk (n - 1 % length) and the first point of the next chunk (n + 1 % length) in each chunk as first and last point of the chunk
-            _points = _points.map((points,i) => {
+            /**_points = _points.map((points,i) => {
                 // get index of previous and next chunk
                 const prev = (i - 1 + _points.length) % _points.length
                 const next = (i + 1) % _points.length
@@ -296,7 +310,7 @@ class Asteroid extends Entity {
                 const nextFirst = _points[next][0]
                 // add last point of previous chunk and first point of next chunk to points
                 return [...points, prevLast, nextFirst]
-            })
+            })*/
             
             _points = _points.map(points => [[0,0], ...points]).map(points => points.map(point => [point[0] + position[0], point[1] + position[1]]))
 
@@ -307,7 +321,7 @@ class Asteroid extends Entity {
                 // angle should be increment by (360 / _points.length)
                 // each asteroid should have a velocity distinct by angle
                 const _asteroid = new Asteroid({
-                    size: this.size - 1,
+                    size: Math.ceil(this.size/_points.length),
                     points: _points[i],
                     position: _centers[i],
                     rotation: this.rotation,
@@ -614,6 +628,8 @@ function collision(entity1,entity2) {
         entity2.mayCollapse = false
         return false
     }
+
+    return false
 }
 
 function isIntersecting(point1,point2,point3,point4) {
@@ -706,6 +722,12 @@ let controls = {
             debug = !debug
         },
         canOnPause: true
+    },
+    tab: {
+        keys: ['Tab'],
+        action: () => {
+            showStats = !showStats
+        }
     }
 }
 
@@ -727,6 +749,17 @@ window.addEventListener('keydown', (e) => {
     keysPressed[e.key] = true
 })
 
+// on using scroll mouse, increase or decrease debug_selected_asteroid_size with min of 8 and max of 24
+window.addEventListener('wheel', (e) => {
+    if (debug) {
+        if (e.deltaY > 0) {
+            debug_selected_asteroid_size = Math.max(debug_selected_asteroid_size - 1, 8)
+        } else {
+            debug_selected_asteroid_size = Math.min(debug_selected_asteroid_size + 1, 32)
+        }
+    }
+})
+
 // add on click listener on canvas and add asteroid at click position
 canvas.addEventListener('click', (e) => {
     // get mouse position in x and y variables
@@ -735,7 +768,10 @@ canvas.addEventListener('click', (e) => {
     const y = e.clientY - rect.top
     asteroids.push(new Asteroid({
         position: [x, y],
-        size: 13,
+        size: debug_selected_asteroid_size,
+        /*velocity: [0, 0],
+        rotation: 0,
+        rotationVelocity: 0,*/
     }))
 })
 
@@ -781,10 +817,10 @@ const draw = () => {
             return {...asteroid, position}
         }))
 
-        if (animation_dying && asteroid.velocity !== [0,0]) {
+        /*if (animation_dying && asteroid.velocity !== [0,0]) {
             asteroid.velocity = [0,0]
             asteroid.rotationVelocity = 0
-        }
+        }*/
 
         // for each asteroid in _asteroids
         _asteroids.forEach(_asteroid => {
@@ -822,7 +858,7 @@ const draw = () => {
         ship.velocity = [0,0]
         ship.rotationVelocity = 0
     }
-    ship.draw()
+    if (!ship.isDead) ship.draw()
 
 
     if (debug) {
@@ -835,6 +871,7 @@ const draw = () => {
         ctx.fillText(`${ship.speed}`, 10, 55)
         if (ship.bullets[0]) ctx.fillText(`${ship.bullets[0].position}`, 10, 70)
         ctx.fillText(`Asteroids : ${asteroids.length}`, 10, 85)
+        ctx.fillText(`Selected Size : ${debug_selected_asteroid_size}`, 10, 100)
     }
 
     lastTime = Date.now()
