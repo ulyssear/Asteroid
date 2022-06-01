@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint src/game.js",
     "build": "esbuild src/game.js --bundle --outfile=dist/game.js",
-    "start": "http-server -p 8080 dist"
+    "start": "http-server -p 8080"
   },
   "repository": {
     "type": "git",
