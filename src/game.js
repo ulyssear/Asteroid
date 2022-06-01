@@ -662,7 +662,7 @@ function playSoundShipFire() {
 
 function playSoundAsteroidExplosion() {
     soundAsteroidExplosion.currentTime = 0
-    soundAsteroidExplosion.volume = 0.75
+    soundAsteroidExplosion.volume = 0.5
     soundAsteroidExplosion.play()
 }
 
