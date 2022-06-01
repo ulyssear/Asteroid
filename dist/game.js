@@ -12,6 +12,7 @@
   var canvas = document.querySelector("canvas");
   var ctx = canvas.getContext("2d");
   var soundShipFire = new Audio("sounds/ship_fire.wav");
+  var soundShipExplosion = new Audio("sounds/ship_explosion.wav");
   var soundAsteroidExplosion = new Audio("sounds/explosion.wav");
   canvas.width = canvas.offsetWidth;
   canvas.height = canvas.offsetHeight;
@@ -138,6 +139,11 @@
       playSoundShipFire();
     }
     explode() {
+      this.isDead = true;
+      this.canFire = false;
+      this.canRotate = false;
+      animation_dying = true;
+      playSounsShipExplosion();
     }
   };
   var Bullet = class extends Entity {
@@ -493,6 +499,10 @@
   function playSoundAsteroidExplosion() {
     soundAsteroidExplosion.currentTime = 0;
     soundAsteroidExplosion.play();
+  }
+  function playSounsShipExplosion() {
+    soundShipExplosion.currentTime = 0;
+    soundShipExplosion.play();
   }
   var ship = new Ship();
   var asteroids = Asteroid.generate(0);

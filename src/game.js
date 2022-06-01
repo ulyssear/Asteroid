@@ -20,6 +20,7 @@ const canvas = document.querySelector('canvas')
 const ctx = canvas.getContext('2d')
 
 const soundShipFire = new Audio('sounds/ship_fire.wav')
+const soundShipExplosion = new Audio('sounds/ship_explosion.wav')
 const soundAsteroidExplosion = new Audio('sounds/explosion.wav')
 
 canvas.width = canvas.offsetWidth
@@ -176,10 +177,11 @@ class Ship extends Entity {
     }
 
     explode() {
-        /*this.isDead = true
+        this.isDead = true
         this.canFire = false
         this.canRotate = false
-        animation_dying = true*/
+        animation_dying = true
+        playSounsShipExplosion()
     }
 
 }
@@ -661,6 +663,11 @@ function playSoundShipFire() {
 function playSoundAsteroidExplosion() {
     soundAsteroidExplosion.currentTime = 0
     soundAsteroidExplosion.play()
+}
+
+function playSounsShipExplosion() {
+    soundShipExplosion.currentTime = 0
+    soundShipExplosion.play()
 }
 
 
