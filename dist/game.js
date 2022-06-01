@@ -139,11 +139,12 @@
       playSoundShipFire();
     }
     explode() {
+      if (!this.isDead)
+        playSoundShipExplosion();
       this.isDead = true;
       this.canFire = false;
       this.canRotate = false;
       animation_dying = true;
-      playSounsShipExplosion();
     }
   };
   var Bullet = class extends Entity {
@@ -498,9 +499,10 @@
   }
   function playSoundAsteroidExplosion() {
     soundAsteroidExplosion.currentTime = 0;
+    soundAsteroidExplosion.volume = 0.75;
     soundAsteroidExplosion.play();
   }
-  function playSounsShipExplosion() {
+  function playSoundShipExplosion() {
     soundShipExplosion.currentTime = 0;
     soundShipExplosion.play();
   }
