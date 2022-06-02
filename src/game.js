@@ -95,7 +95,7 @@ class Ship extends Entity {
             // id: 0,
             // isAlive: true,
             // isColliding: false,
-            // isDead: false,
+            isDead: false,
             // isHitByBullet: false,
             // isHitByShip: false,
             // isHitByMine: false,
@@ -461,9 +461,11 @@ class UFO extends Entity {
             bullets: [],
             canFire: true,
             velocity: [4, 0],
-            position: [-50, Math.random() * (canvas.height - (canvas.height / 12)) + (canvas.height / 12)],
             rotationVelocity: 0,
-            canDrawClones: false
+            canDrawClones: false,
+            isDead: false,
+            position: null,
+            aggressive: false
         }
     }
 
@@ -475,6 +477,7 @@ class UFO extends Entity {
             ...params
         }
         for (let key in params) this[key] = params[key]
+        this.position = this.position ?? getNewUFOPosition(this.size)
         // this.points = []
         const points_basement = [
             [ (2/17) * this.size, (4/17) * this.size ],
@@ -518,8 +521,7 @@ class UFO extends Entity {
             // if reach the end of the canvas, go back to the beginning with a new y position
             // check if all points are out of the canvas
             if ((this.position[0] - this.size) > canvas.width) {
-                this.position[0] = -this.size - 30
-                this.position[1] = Math.random() * (canvas.height - (canvas.height / 12)) + (canvas.height / 12)
+                this.position = getNewUFOPosition(this.size)
             }
             drawEntity(this)
         } catch (error) {
@@ -537,6 +539,11 @@ class UFO extends Entity {
         this.points = this.points.map(point => rotatePoint(point, this.rotationVelocity))
     }
 
+}
+
+
+function getNewUFOPosition(size) {
+    return [-50, Math.random() * (canvas.height - (size * 2)) + (size * 2)]
 }
 
 function getNumberChunk(n, size, min) {
@@ -1082,7 +1089,7 @@ const draw = () => {
     }
     if (!ship.isDead) ship.draw()
 
-    ufo.draw()
+    if (!ufo.isDead) ufo.draw()
 
 
     if (debug) {

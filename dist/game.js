@@ -74,7 +74,8 @@
         bullets: [],
         canFire: true,
         canRotate: true,
-        velocity: [0, 0]
+        velocity: [0, 0],
+        isDead: false
       };
     }
     constructor(params = {}) {
@@ -373,9 +374,11 @@
         bullets: [],
         canFire: true,
         velocity: [4, 0],
-        position: [-50, Math.random() * (canvas.height - canvas.height / 12) + canvas.height / 12],
         rotationVelocity: 0,
-        canDrawClones: false
+        canDrawClones: false,
+        isDead: false,
+        position: null,
+        aggressive: false
       };
     }
     constructor(params = {}) {
@@ -387,6 +390,7 @@
       };
       for (let key in params)
         this[key] = params[key];
+      this.position = this.position ?? getNewUFOPosition(this.size);
       const points_basement = [
         [2 / 17 * this.size, 4 / 17 * this.size],
         [15 / 17 * this.size, 4 / 17 * this.size],
@@ -426,8 +430,7 @@
     draw() {
       try {
         if (this.position[0] - this.size > canvas.width) {
-          this.position[0] = -this.size - 30;
-          this.position[1] = Math.random() * (canvas.height - canvas.height / 12) + canvas.height / 12;
+          this.position = getNewUFOPosition(this.size);
         }
         drawEntity(this);
       } catch (error) {
@@ -443,6 +446,9 @@
       this.points = this.points.map((point) => rotatePoint(point, this.rotationVelocity));
     }
   };
+  function getNewUFOPosition(size) {
+    return [-50, Math.random() * (canvas.height - size * 2) + size * 2];
+  }
   function getNumberChunk(n, size, min) {
     if (n <= 1)
       return 1;
@@ -836,7 +842,8 @@
     }
     if (!ship.isDead)
       ship.draw();
-    ufo.draw();
+    if (!ufo.isDead)
+      ufo.draw();
     if (debug) {
       ctx.font = "24px VT323";
       ctx.fillStyle = "white";
