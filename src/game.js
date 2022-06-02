@@ -209,6 +209,8 @@ class Ship extends Entity {
         const { position, rotation, points } = this
         let bullets = [new Bullet({
             position: translatePoints([points[0]], position)[0],
+            velocity: this.velocity.map(e => e * 1.25),
+            friction: 1,
             rotation,
         })]
         
@@ -255,7 +257,7 @@ class Bullet extends Entity {
     static DEFAULT() {
         return {
             friction: 1,
-            speed: 5,
+            speed: 28,
             points: [[0, 0]]
         }
     }
@@ -269,6 +271,9 @@ class Bullet extends Entity {
         }
         for (let key in params) this[key] = params[key]
         this.velocity = [Math.cos(this.rotation * Math.PI / 180) * this.speed, Math.sin(this.rotation * Math.PI / 180) * this.speed]
+        // if this.velocity is [0,0] so set to [Math.cos(this.rotation * Math.PI / 180) * this.speed, Math.sin(this.rotation * Math.PI / 180) * this.speed]
+        // const min_velocity = [Math.cos(this.rotation * Math.PI / 180) * this.speed, Math.sin(this.rotation * Math.PI / 180) * this.speed]
+        // this.velocity = this.velocity.map((e, i) => Math.min(e, min_velocity[i]))
         this.draw()
     }
 
@@ -901,6 +906,21 @@ function playSoundShipExplosion() {
     soundShipExplosion.play()
 }
 
+function getNearestShip(entity) {
+    // return the position of nearest ship
+    const positions = [ship.position, ...Object.values(getClonesPositions(ship))]
+    // find nearest position in positions from entity.position
+    let minDistance = Infinity
+    let nearestPosition = null
+    for (const position of positions) {
+        const distance = getDistance(entity.position, position)
+        if (distance < minDistance) {
+            minDistance = distance
+            nearestPosition = position
+        }
+    }
+    return nearestPosition
+}
 
 function getDistance(p1, p2) {
     const [x1, y1] = p1
@@ -1091,6 +1111,19 @@ const draw = () => {
 
     if (!ufo.isDead) ufo.draw()
 
+    // if debug, draw a red line from ufo to the nearest ship (ship and his clones)
+    if (debug && !ufo.isDead && !ship.isDead) {
+        const nearest_ship = getNearestShip(ufo)
+        // if nearest ship is 'ship', draw a red line to ship
+        // otherwise, draw to the clone bound set in nearest_ship
+
+        ctx.beginPath()
+        ctx.strokeStyle = 'red'
+        ctx.moveTo(ufo.position[0], ufo.position[1])
+        ctx.lineTo(nearest_ship[0], nearest_ship[1])
+        ctx.stroke()
+    }
+
 
     if (debug) {
         ctx.font = '24px VT323'
@@ -1110,5 +1143,6 @@ const draw = () => {
 }
 
 draw()
+
 window.ship = ship
 window.asteroids = asteroids

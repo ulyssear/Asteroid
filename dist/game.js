@@ -171,6 +171,8 @@
       const { position, rotation, points } = this;
       let bullets = [new Bullet({
         position: translatePoints([points[0]], position)[0],
+        velocity: this.velocity.map((e) => e * 1.25),
+        friction: 1,
         rotation
       })];
       const clonesPositions = getClonesPositions(this);
@@ -211,7 +213,7 @@
     static DEFAULT() {
       return {
         friction: 1,
-        speed: 5,
+        speed: 28,
         points: [[0, 0]]
       };
     }
@@ -712,6 +714,24 @@
     soundShipExplosion.currentTime = 0;
     soundShipExplosion.play();
   }
+  function getNearestShip(entity) {
+    const positions = [ship.position, ...Object.values(getClonesPositions(ship))];
+    let minDistance = Infinity;
+    let nearestPosition = null;
+    for (const position of positions) {
+      const distance = getDistance(entity.position, position);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestPosition = position;
+      }
+    }
+    return nearestPosition;
+  }
+  function getDistance(p1, p2) {
+    const [x1, y1] = p1;
+    const [x2, y2] = p2;
+    return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+  }
   var ship = new Ship();
   var ufo = new UFO();
   var asteroids = Asteroid.generate(0);
@@ -844,6 +864,14 @@
       ship.draw();
     if (!ufo.isDead)
       ufo.draw();
+    if (debug && !ufo.isDead && !ship.isDead) {
+      const nearest_ship = getNearestShip(ufo);
+      ctx.beginPath();
+      ctx.strokeStyle = "red";
+      ctx.moveTo(ufo.position[0], ufo.position[1]);
+      ctx.lineTo(nearest_ship[0], nearest_ship[1]);
+      ctx.stroke();
+    }
     if (debug) {
       ctx.font = "24px VT323";
       ctx.fillStyle = "white";
