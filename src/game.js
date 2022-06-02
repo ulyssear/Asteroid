@@ -20,8 +20,8 @@ Array.prototype.chunkWithExtremums = function (max, min) {
 }
 
 let paused = false
-let debug = true
-let debug_selected_asteroid_size = 13
+let debug = false
+let debug_selected_asteroid_size = 18
 let showStats = false
 
 let animation_dying = false
@@ -32,6 +32,11 @@ const ctx = canvas.getContext('2d')
 const soundShipFire = new Audio('sounds/ship_fire.wav')
 const soundShipExplosion = new Audio('sounds/ship_explosion.wav')
 const soundAsteroidExplosion = new Audio('sounds/explosion.wav')
+const soundShipAcceleration = new Audio('sounds/ship_acceleration.wav')
+
+soundShipAcceleration.volume = 0.4
+
+let timeout_sound_ship_acceleration = null
 
 canvas.width = canvas.offsetWidth
 canvas.height = canvas.offsetHeight
@@ -57,6 +62,9 @@ class Entity {
             friction: .965,
             isClone: false,
             mayCollapse: false,
+            hidden: false,
+            dont_draw_clones_until_in_canvas: false,
+            canDrawClones: true
         }
     }
 
@@ -104,10 +112,16 @@ class Ship extends Entity {
         }
         for (let key in params) this[key] = params[key]
         this.points = [
-            [-this.size / 3, this.size / 3],
-            [0, -this.size / 2],
-            [this.size / 3, this.size / 3]
+            [this.size/3, 0],
+            [(7/12) * this.size, this.size/2],
+            [(2/3) * this.size, this.size],
+            [this.size/2, (3/4) * this.size],
+            [this.size/6, (3/4) * this.size],
+            [0, this.size],
+            [(1/12) * this.size, this.size/2],
         ]
+        const center = getCenterPolygon(this.points)
+        this.points = this.points.map(([x,y]) => [x - center[0], y - center[1]])
         this.lines = this.points.map((e, i) => [i, (i + 1) % this.points.length])
         this.rotation = -90
         this.draw()
@@ -147,6 +161,7 @@ class Ship extends Entity {
     }
 
     rotateLeft() {
+        if (this.hidden) return
         if (!this.canRotate) return
         const angle = 4
         this.rotationVelocity = -angle * Math.PI / 180
@@ -155,6 +170,7 @@ class Ship extends Entity {
     }
 
     rotateRight() {
+        if (this.hidden) return
         if (!this.canRotate) return
         const angle = 4
         this.rotationVelocity = angle * Math.PI / 180
@@ -163,14 +179,18 @@ class Ship extends Entity {
     }
 
     accelerate() {
+        if (this.hidden) return
+        if (this.isDead) return
         this.speed += .45
         this.velocity = [this.speed * Math.cos(this.rotation * Math.PI / 180), this.speed * Math.sin(this.rotation * Math.PI / 180)]
         const decimals = 5 * 10
         this.velocity = [Math.round(this.velocity[0] * decimals) / decimals, Math.round(this.velocity[1] * decimals) / decimals]
         this.speed = Math.round(this.speed * decimals) / decimals
+        startPlayingSoundShipAccerleration()
     }
 
     move() {
+        if (this.hidden) return
         let [vx, vy] = this.velocity.map(e => e * this.friction)
         this.position = translatePoints([this.position], this.velocity)[0]
         this.speed *= this.friction
@@ -183,21 +203,50 @@ class Ship extends Entity {
     }
 
     fire() {
+        if (this.hidden) return
         if (!this.canFire) return
         this.canFire = false
-        let bullet
-        const { position, rotation } = this
-        bullet = new Bullet({ position, rotation })
-        this.bullets.push(bullet)
+        const { position, rotation, points } = this
+        let bullets = [new Bullet({
+            position: translatePoints([points[0]], position)[0],
+            rotation,
+        })]
+        
+        const clonesPositions = getClonesPositions(this)
+
+        Object.keys(this.clones).forEach((bound) => {
+            const clone = this.clones[bound]
+            if (clone) {
+                const _position = translatePoints([points[0]], clonesPositions[bound])[0]
+                if (isOutOfCanvas(_position)) return
+                bullets.push(new Bullet({ position: _position, rotation }))
+            }
+        })
+
+        // push bullet in bullets to this.bullets
+        bullets.forEach(bullet => this.bullets.push(bullet))
         playSoundShipFire()
     }
 
     explode() {
+        if (this.hidden) return
         if (!this.isDead) playSoundShipExplosion()
         this.isDead = true
         this.canFire = false
         this.canRotate = false
         animation_dying = true
+    }
+
+    teleport() {
+        // teleport in a position where there is no asteroids or ufo
+        ship.hidden = true
+       const x = Math.floor(Math.random() * (canvas.width - ship.size) + ship.size)
+        const y = Math.floor(Math.random() * (canvas.height - ship.size) + ship.size)
+        const position = [x, y]
+        this.position = position
+        setTimeout(() => {
+            ship.hidden = false
+        }, 800)
     }
 
 }
@@ -294,7 +343,6 @@ class Asteroid extends Entity {
 
     move() {
         this.position = translatePoints([this.position], this.velocity)[0]
-        this.rotate()
     }
 
     explode() {
@@ -311,11 +359,6 @@ class Asteroid extends Entity {
             let _centers = _points.map( e => getCenterPolygon(e) )
             _points = _points.map( (e,i) => translatePoints(e, [-_centers[i][0], -_centers[i][1]]) )
             
-            /*    .map(e => [[0,0], ...e])
-                .map(points => points.map(point => [point[0] + position[0], point[1] + position[1]]))
-            let _centers = _points.map(points => getCenterPolygon(points))
-            */
-            console.debug({_points})
             
             for (let i = 0; i < _points.length; i++) {
                 // angle should be increment by (360 / _points.length)
@@ -344,18 +387,6 @@ class Asteroid extends Entity {
             const { position } = this
             let _points = sortPoints([...this.points]).chunkWithExtremums(10, 6)
 
-            // for each chunk of _points, add the last point of the previous chunk (n - 1 % length) and the first point of the next chunk (n + 1 % length) in each chunk as first and last point of the chunk
-            /**_points = _points.map((points,i) => {
-                // get index of previous and next chunk
-                const prev = (i - 1 + _points.length) % _points.length
-                const next = (i + 1) % _points.length
-                // get last point of previous chunk and first point of next chunk
-                const prevLast = _points[prev][_points[prev].length - 1]
-                const nextFirst = _points[next][0]
-                // add last point of previous chunk and first point of next chunk to points
-                return [...points, prevLast, nextFirst]
-            })*/
-
             _points = _points.map(points => [[0, 0], ...points]).map(points => points.map(point => [point[0] + position[0], point[1] + position[1]]))
 
             const _centers = _points.map(points => getCenterPolygon(points))
@@ -374,28 +405,6 @@ class Asteroid extends Entity {
                 })
                 asteroids.push(_asteroid)
             }
-
-            /*while (0 < _points.length) {
-                let points = [[0,0]]
-                // appends the first six points of _points
-                console.debug({_points: [..._points]})
-                for (let i = 0; i < Math.min(6, _points.length); i++) {
-                    points.push(_points[i])
-                    _points.splice(i, 1)
-                }
-                points = points.map(e => [e[0] + position[0], e[1] + position[1]])
-                const center = getCenterPolygon(points)
-                points = points.map(e => [e[0] - center[0], e[1] - center[1]])
-                const asteroid = new Asteroid({
-                    size:  points.length,
-                    position: center,
-                    rotation: this.rotation,
-                    rotationVelocity: this.rotationVelocity,
-                    velocity: this.velocity,
-                    points: points
-                })
-                asteroids.push(asteroid)
-            }*/
         }
 
         playSoundAsteroidExplosion()
@@ -442,11 +451,98 @@ class Asteroid extends Entity {
 
 }
 
+class UFO extends Entity {
+
+    static DEFAULT() {
+        return {
+            name: 'UFO',
+            speed: 0,
+            size: 85,
+            bullets: [],
+            canFire: true,
+            velocity: [4, 0],
+            position: [-50, Math.random() * (canvas.height - (canvas.height / 12)) + (canvas.height / 12)],
+            rotationVelocity: 0,
+            canDrawClones: false
+        }
+    }
+
+    constructor(params = {}) {
+        super(params)
+        params = {
+            ...Entity.DEFAULT(),
+            ...UFO.DEFAULT(),
+            ...params
+        }
+        for (let key in params) this[key] = params[key]
+        // this.points = []
+        const points_basement = [
+            [ (2/17) * this.size, (4/17) * this.size ],
+            [ (15/17) * this.size, (4/17) * this.size ],
+            [ this.size, (6/17) * this.size ], 
+            [ this.size, (7/17) * this.size ],
+            [ (15/17) * this.size, (9/17) * this.size ],
+            [ (2/17) * this.size, (9/17) * this.size ],
+            [ 0, (7/17) * this.size ],
+            [ 0, (6/17) * this.size ],
+        ]
+        const points_sub_basement = [
+            [ (4/17) * this.size, (9/17) * this.size ],
+            [ (5/17) * this.size, (10/17) * this.size ],
+            [ (12/17) * this.size, (10/17) * this.size ],
+            [ (13/17) * this.size, (9/17) * this.size ],
+        ]
+        const points_head = [
+            [ (5/17) * this.size, (4/17) * this.size ],
+            [ (5/17) * this.size, (1/17) * this.size ],
+            [ (7/17) * this.size, 0 ],
+            [ (10/17) * this.size, 0 ],
+            [ (12/17) * this.size, (1/17) * this.size ],
+            [ (12/17) * this.size, (4/17) * this.size ],
+        ]
+        this.points = [...points_basement, ...points_sub_basement, ...points_head]
+        const center = getCenterPolygon(this.points)
+        this.points = this.points.map(([x,y]) => [x - center[0], y - center[1]])
+        this.lines = [
+            ...points_basement.map((e, i) => [i, (i + 1) % points_basement.length]),
+            ...points_sub_basement.map((e, i) => [points_basement.length + i, points_basement.length + ((i + 1) % points_sub_basement.length)]),
+            ...points_head.map((e, i) => [points_basement.length + points_sub_basement.length + i, points_basement.length + points_sub_basement.length + ((i + 1) % points_head.length)]),
+        ]
+        this.lines = [...this.lines, [2, 7], [3, 6]]
+        this.rotation = -90
+        this.draw()
+    }
+
+    draw() {
+        try {
+            // if reach the end of the canvas, go back to the beginning with a new y position
+            // check if all points are out of the canvas
+            if ((this.position[0] - this.size) > canvas.width) {
+                this.position[0] = -this.size - 30
+                this.position[1] = Math.random() * (canvas.height - (canvas.height / 12)) + (canvas.height / 12)
+            }
+            drawEntity(this)
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+    move() {
+        this.position = translatePoints([this.position], this.velocity)[0]
+    }
+
+    fire() {}
+
+    rotate() {
+        this.points = this.points.map(point => rotatePoint(point, this.rotationVelocity))
+    }
+
+}
+
 function getNumberChunk(n, size, min) {
     if (n <= 1) return 1
     let byChunk = Math.ceil(size/n)
     let rest = size % byChunk
-    console.debug({byChunk, rest, n})
     if (byChunk < min || rest !== 0 && rest < min) return getNumberChunk(n-1, size, min)
     if (rest === 0) return n
     return n
@@ -582,20 +678,66 @@ function rotatePoint([x, y], rotation = 0) {
     return [x * Math.cos(rotation) - y * Math.sin(rotation), x * Math.sin(rotation) + y * Math.cos(rotation)].map(e => Math.floor(e * 1000) / 1000)
 }
 
+function startPlayingSoundShipAccerleration() {
+    
+    // if timeout_sound_ship_acceleration is defined, clearTimeout
+    if (timeout_sound_ship_acceleration) clearTimeout(timeout_sound_ship_acceleration)
+
+    
+    // if sound not playing, play sound
+    if (soundShipAcceleration.paused) {
+        soundShipAcceleration.currentTime = 0
+        soundShipAcceleration.play()
+    }
+
+    // on playing : if current time reached 800ms, replay to 0s (dont need to reach the end of the audio)
+    soundShipAcceleration.ontimeupdate = () => {
+        if (soundShipAcceleration.currentTime > 0.35) {
+            soundShipAcceleration.currentTime = soundShipAcceleration.currentTime - 0.004
+        }
+    }
+
+    // in timeout: if timeout reached after 500ms, remove event ontimeupdate on soundShipAcceleration
+    timeout_sound_ship_acceleration = setTimeout(() => {
+        soundShipAcceleration.ontimeupdate = null
+    }, 50)
+
+}
+
 
 function drawEntity(entity) {
+
+    if (entity.hidden) return
+
     try {
+        let canDrawClones = entity.canDrawClones
+
+        if (entity.hasOwnProperty('dont_draw_clones_until_in_canvas')) {
+            if (entity.dont_draw_clones_until_in_canvas) {
+                canDrawClones = false
+                // if each point is not out of canvas, set dont_draw_clones_until_in_canvas to false
+                if (translatePoints(entity.points, entity.position).map(point => !isOutOfCanvas(point)).reduce((a, b) => a && b)) {
+                    entity.dont_draw_clones_until_in_canvas = false
+                }
+            }
+        }
+
+
         entity.move()
-        checkBoundaries(entity)
+        if (entity.rotate) entity.rotate()
+        if (canDrawClones) checkBoundaries(entity)
         // drawClones(entity)
-        updateOutOfBounds(entity)
+        if (canDrawClones) updateOutOfBounds(entity)
 
         _drawEntity(entity)
 
-        const clonesPositions = getClonesPositions(entity)
-        for (const bound in clonesPositions) {
-            const position = clonesPositions[bound]
-            _drawEntity({ ...entity, position })
+
+        if (canDrawClones) {
+            const clonesPositions = getClonesPositions(entity)
+            for (const bound in clonesPositions) {
+                const position = clonesPositions[bound]
+                _drawEntity({ ...entity, position })
+            }
         }
 
     } catch (error) {
@@ -621,12 +763,22 @@ function _drawEntity(entity) {
 
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
-    for (let i = 0; i < entity.points.length; i++) {
+    // lines are defined in this.lines, which is an array of arrays of id of points in this.points
+    for (let i = 0; i < entity.lines.length; i++) {
+        const line = entity.lines[i]
+        const [x1, y1] = entity.points[line[0]]
+        const [x2, y2] = entity.points[line[1]]
+        drawLine(position, [x1, y1], [x2, y2], entity.color)
+        if (debug) {
+            drawPoint(3, [x1 + x, y1 + y], 'red')
+        }
+    }
+    /*for (let i = 0; i < entity.points.length; i++) {
         const [x1, y1] = entity.points[i]
         const [x2, y2] = entity.points[(i + 1) % entity.points.length]
         drawLine(position, [x1, y1], [x2, y2], entity.color)
         if (debug) drawPoint(3, [x1 + x, y1 + y], 'red')
-    }
+    }*/
 }
 
 // function to check is point [x,y] is out of canvas
@@ -743,7 +895,16 @@ function playSoundShipExplosion() {
 }
 
 
+function getDistance(p1, p2) {
+    const [x1, y1] = p1
+    const [x2, y2] = p2
+    return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+}
+
+
 const ship = new Ship()
+
+const ufo = new UFO()
 
 const asteroids = Asteroid.generate(0)
 
@@ -783,6 +944,13 @@ let controls = {
         action: () => {
             showStats = !showStats
         }
+    },
+    teleport: {
+        keys: ['r', 'R'],
+        action: () => {
+            ship.teleport()
+        }
+
     }
 }
 
@@ -829,7 +997,6 @@ canvas.addEventListener('click', (e) => {
         rotationVelocity: 0,*/
     }))
 })
-
 
 
 let lastTime = Date.now()
@@ -914,6 +1081,8 @@ const draw = () => {
         ship.rotationVelocity = 0
     }
     if (!ship.isDead) ship.draw()
+
+    ufo.draw()
 
 
     if (debug) {

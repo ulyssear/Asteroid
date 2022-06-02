@@ -1,8 +1,7 @@
 {
-  "name": "first",
+  "name": "asteroids",
   "version": "1.0.0",
   "description": "",
-  "main": "first.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint src/game.js",
@@ -14,15 +13,14 @@
     "type": "git",
     "url": "git+https://github.com/ulyssear/new-Asteroids.git"
   },
-  "author": "",
+  "author": "Ulysse ARNAUD",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/ulyssear/new-Asteroids/issues"
   },
   "homepage": "https://github.com/ulyssear/new-Asteroids#readme",
   "dependencies": {
-    "esbuild": "^0.14.39",
-    "greiner-hormann": "^1.4.2"
+    "esbuild": "^0.14.39"
   },
   "devDependencies": {
     "eslint": "^8.16.0"

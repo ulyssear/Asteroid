@@ -13,8 +13,8 @@
     return this.chunk(max);
   };
   var paused = false;
-  var debug = true;
-  var debug_selected_asteroid_size = 13;
+  var debug = false;
+  var debug_selected_asteroid_size = 18;
   var showStats = false;
   var animation_dying = false;
   var canvas = document.querySelector("canvas");
@@ -22,6 +22,9 @@
   var soundShipFire = new Audio("sounds/ship_fire.wav");
   var soundShipExplosion = new Audio("sounds/ship_explosion.wav");
   var soundAsteroidExplosion = new Audio("sounds/explosion.wav");
+  var soundShipAcceleration = new Audio("sounds/ship_acceleration.wav");
+  soundShipAcceleration.volume = 0.4;
+  var timeout_sound_ship_acceleration = null;
   canvas.width = canvas.offsetWidth;
   canvas.height = canvas.offsetHeight;
   var Entity = class {
@@ -47,7 +50,10 @@
         color: "white",
         friction: 0.965,
         isClone: false,
-        mayCollapse: false
+        mayCollapse: false,
+        hidden: false,
+        dont_draw_clones_until_in_canvas: false,
+        canDrawClones: true
       };
     }
     constructor(params = {}) {
@@ -81,10 +87,16 @@
       for (let key in params)
         this[key] = params[key];
       this.points = [
-        [-this.size / 3, this.size / 3],
-        [0, -this.size / 2],
-        [this.size / 3, this.size / 3]
+        [this.size / 3, 0],
+        [7 / 12 * this.size, this.size / 2],
+        [2 / 3 * this.size, this.size],
+        [this.size / 2, 3 / 4 * this.size],
+        [this.size / 6, 3 / 4 * this.size],
+        [0, this.size],
+        [1 / 12 * this.size, this.size / 2]
       ];
+      const center = getCenterPolygon(this.points);
+      this.points = this.points.map(([x, y]) => [x - center[0], y - center[1]]);
       this.lines = this.points.map((e, i) => [i, (i + 1) % this.points.length]);
       this.rotation = -90;
       this.draw();
@@ -105,6 +117,8 @@
       }
     }
     rotateLeft() {
+      if (this.hidden)
+        return;
       if (!this.canRotate)
         return;
       const angle = 4;
@@ -113,6 +127,8 @@
       rotate(this);
     }
     rotateRight() {
+      if (this.hidden)
+        return;
       if (!this.canRotate)
         return;
       const angle = 4;
@@ -121,13 +137,20 @@
       rotate(this);
     }
     accelerate() {
+      if (this.hidden)
+        return;
+      if (this.isDead)
+        return;
       this.speed += 0.45;
       this.velocity = [this.speed * Math.cos(this.rotation * Math.PI / 180), this.speed * Math.sin(this.rotation * Math.PI / 180)];
       const decimals = 5 * 10;
       this.velocity = [Math.round(this.velocity[0] * decimals) / decimals, Math.round(this.velocity[1] * decimals) / decimals];
       this.speed = Math.round(this.speed * decimals) / decimals;
+      startPlayingSoundShipAccerleration();
     }
     move() {
+      if (this.hidden)
+        return;
       let [vx, vy] = this.velocity.map((e) => e * this.friction);
       this.position = translatePoints([this.position], this.velocity)[0];
       this.speed *= this.friction;
@@ -139,22 +162,48 @@
       }
     }
     fire() {
+      if (this.hidden)
+        return;
       if (!this.canFire)
         return;
       this.canFire = false;
-      let bullet;
-      const { position, rotation } = this;
-      bullet = new Bullet({ position, rotation });
-      this.bullets.push(bullet);
+      const { position, rotation, points } = this;
+      let bullets = [new Bullet({
+        position: translatePoints([points[0]], position)[0],
+        rotation
+      })];
+      const clonesPositions = getClonesPositions(this);
+      Object.keys(this.clones).forEach((bound) => {
+        const clone = this.clones[bound];
+        if (clone) {
+          const _position = translatePoints([points[0]], clonesPositions[bound])[0];
+          if (isOutOfCanvas(_position))
+            return;
+          bullets.push(new Bullet({ position: _position, rotation }));
+        }
+      });
+      bullets.forEach((bullet) => this.bullets.push(bullet));
       playSoundShipFire();
     }
     explode() {
+      if (this.hidden)
+        return;
       if (!this.isDead)
         playSoundShipExplosion();
       this.isDead = true;
       this.canFire = false;
       this.canRotate = false;
       animation_dying = true;
+    }
+    teleport() {
+      ship.hidden = true;
+      const x = Math.floor(Math.random() * (canvas.width - ship.size) + ship.size);
+      const y = Math.floor(Math.random() * (canvas.height - ship.size) + ship.size);
+      const position = [x, y];
+      this.position = position;
+      setTimeout(() => {
+        ship.hidden = false;
+      }, 800);
     }
   };
   var Bullet = class extends Entity {
@@ -238,7 +287,6 @@
     }
     move() {
       this.position = translatePoints([this.position], this.velocity)[0];
-      this.rotate();
     }
     explode() {
       const { lines, size, position, points, rotation, rotationVelocity, velocity } = this;
@@ -247,7 +295,6 @@
         let _points = _lines.map((line) => line.map((point) => point.map((i) => points[i])).flat()).map((line) => [[0, 0], ...line]).map((line) => line.map((point) => translatePoints([position], point)[0]));
         let _centers = _points.map((e) => getCenterPolygon(e));
         _points = _points.map((e, i) => translatePoints(e, [-_centers[i][0], -_centers[i][1]]));
-        console.debug({ _points });
         for (let i = 0; i < _points.length; i++) {
           const _asteroid = new Asteroid({
             size: Math.ceil(size / _points.length),
@@ -317,12 +364,90 @@
       return asteroids2;
     }
   };
+  var UFO = class extends Entity {
+    static DEFAULT() {
+      return {
+        name: "UFO",
+        speed: 0,
+        size: 85,
+        bullets: [],
+        canFire: true,
+        velocity: [4, 0],
+        position: [-50, Math.random() * (canvas.height - canvas.height / 12) + canvas.height / 12],
+        rotationVelocity: 0,
+        canDrawClones: false
+      };
+    }
+    constructor(params = {}) {
+      super(params);
+      params = {
+        ...Entity.DEFAULT(),
+        ...UFO.DEFAULT(),
+        ...params
+      };
+      for (let key in params)
+        this[key] = params[key];
+      const points_basement = [
+        [2 / 17 * this.size, 4 / 17 * this.size],
+        [15 / 17 * this.size, 4 / 17 * this.size],
+        [this.size, 6 / 17 * this.size],
+        [this.size, 7 / 17 * this.size],
+        [15 / 17 * this.size, 9 / 17 * this.size],
+        [2 / 17 * this.size, 9 / 17 * this.size],
+        [0, 7 / 17 * this.size],
+        [0, 6 / 17 * this.size]
+      ];
+      const points_sub_basement = [
+        [4 / 17 * this.size, 9 / 17 * this.size],
+        [5 / 17 * this.size, 10 / 17 * this.size],
+        [12 / 17 * this.size, 10 / 17 * this.size],
+        [13 / 17 * this.size, 9 / 17 * this.size]
+      ];
+      const points_head = [
+        [5 / 17 * this.size, 4 / 17 * this.size],
+        [5 / 17 * this.size, 1 / 17 * this.size],
+        [7 / 17 * this.size, 0],
+        [10 / 17 * this.size, 0],
+        [12 / 17 * this.size, 1 / 17 * this.size],
+        [12 / 17 * this.size, 4 / 17 * this.size]
+      ];
+      this.points = [...points_basement, ...points_sub_basement, ...points_head];
+      const center = getCenterPolygon(this.points);
+      this.points = this.points.map(([x, y]) => [x - center[0], y - center[1]]);
+      this.lines = [
+        ...points_basement.map((e, i) => [i, (i + 1) % points_basement.length]),
+        ...points_sub_basement.map((e, i) => [points_basement.length + i, points_basement.length + (i + 1) % points_sub_basement.length]),
+        ...points_head.map((e, i) => [points_basement.length + points_sub_basement.length + i, points_basement.length + points_sub_basement.length + (i + 1) % points_head.length])
+      ];
+      this.lines = [...this.lines, [2, 7], [3, 6]];
+      this.rotation = -90;
+      this.draw();
+    }
+    draw() {
+      try {
+        if (this.position[0] - this.size > canvas.width) {
+          this.position[0] = -this.size - 30;
+          this.position[1] = Math.random() * (canvas.height - canvas.height / 12) + canvas.height / 12;
+        }
+        drawEntity(this);
+      } catch (error) {
+        console.log(error);
+      }
+    }
+    move() {
+      this.position = translatePoints([this.position], this.velocity)[0];
+    }
+    fire() {
+    }
+    rotate() {
+      this.points = this.points.map((point) => rotatePoint(point, this.rotationVelocity));
+    }
+  };
   function getNumberChunk(n, size, min) {
     if (n <= 1)
       return 1;
     let byChunk = Math.ceil(size / n);
     let rest = size % byChunk;
-    console.debug({ byChunk, rest, n });
     if (byChunk < min || rest !== 0 && rest < min)
       return getNumberChunk(n - 1, size, min);
     if (rest === 0)
@@ -431,16 +556,49 @@
   function rotatePoint([x, y], rotation = 0) {
     return [x * Math.cos(rotation) - y * Math.sin(rotation), x * Math.sin(rotation) + y * Math.cos(rotation)].map((e) => Math.floor(e * 1e3) / 1e3);
   }
+  function startPlayingSoundShipAccerleration() {
+    if (timeout_sound_ship_acceleration)
+      clearTimeout(timeout_sound_ship_acceleration);
+    if (soundShipAcceleration.paused) {
+      soundShipAcceleration.currentTime = 0;
+      soundShipAcceleration.play();
+    }
+    soundShipAcceleration.ontimeupdate = () => {
+      if (soundShipAcceleration.currentTime > 0.35) {
+        soundShipAcceleration.currentTime = soundShipAcceleration.currentTime - 4e-3;
+      }
+    };
+    timeout_sound_ship_acceleration = setTimeout(() => {
+      soundShipAcceleration.ontimeupdate = null;
+    }, 50);
+  }
   function drawEntity(entity) {
+    if (entity.hidden)
+      return;
     try {
+      let canDrawClones = entity.canDrawClones;
+      if (entity.hasOwnProperty("dont_draw_clones_until_in_canvas")) {
+        if (entity.dont_draw_clones_until_in_canvas) {
+          canDrawClones = false;
+          if (translatePoints(entity.points, entity.position).map((point) => !isOutOfCanvas(point)).reduce((a, b) => a && b)) {
+            entity.dont_draw_clones_until_in_canvas = false;
+          }
+        }
+      }
       entity.move();
-      checkBoundaries(entity);
-      updateOutOfBounds(entity);
+      if (entity.rotate)
+        entity.rotate();
+      if (canDrawClones)
+        checkBoundaries(entity);
+      if (canDrawClones)
+        updateOutOfBounds(entity);
       _drawEntity(entity);
-      const clonesPositions = getClonesPositions(entity);
-      for (const bound in clonesPositions) {
-        const position = clonesPositions[bound];
-        _drawEntity({ ...entity, position });
+      if (canDrawClones) {
+        const clonesPositions = getClonesPositions(entity);
+        for (const bound in clonesPositions) {
+          const position = clonesPositions[bound];
+          _drawEntity({ ...entity, position });
+        }
       }
     } catch (error) {
       console.error(error);
@@ -461,12 +619,14 @@
     }
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    for (let i = 0; i < entity.points.length; i++) {
-      const [x1, y1] = entity.points[i];
-      const [x2, y2] = entity.points[(i + 1) % entity.points.length];
+    for (let i = 0; i < entity.lines.length; i++) {
+      const line = entity.lines[i];
+      const [x1, y1] = entity.points[line[0]];
+      const [x2, y2] = entity.points[line[1]];
       drawLine(position, [x1, y1], [x2, y2], entity.color);
-      if (debug)
+      if (debug) {
         drawPoint(3, [x1 + x, y1 + y], "red");
+      }
     }
   }
   function isOutOfCanvas([x, y]) {
@@ -547,6 +707,7 @@
     soundShipExplosion.play();
   }
   var ship = new Ship();
+  var ufo = new UFO();
   var asteroids = Asteroid.generate(0);
   var controls = {
     "rotate left": {
@@ -583,6 +744,12 @@
       keys: ["Tab"],
       action: () => {
         showStats = !showStats;
+      }
+    },
+    teleport: {
+      keys: ["r", "R"],
+      action: () => {
+        ship.teleport();
       }
     }
   };
@@ -669,6 +836,7 @@
     }
     if (!ship.isDead)
       ship.draw();
+    ufo.draw();
     if (debug) {
       ctx.font = "24px VT323";
       ctx.fillStyle = "white";
