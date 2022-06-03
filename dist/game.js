@@ -23,7 +23,9 @@
   var soundShipExplosion = new Audio("sounds/ship_explosion.wav");
   var soundAsteroidExplosion = new Audio("sounds/explosion.wav");
   var soundShipAcceleration = new Audio("sounds/ship_acceleration.wav");
+  var soundUfoFire = new Audio("sounds/ufo_fire.wav");
   soundShipAcceleration.volume = 0.4;
+  soundUfoFire.volume = 0.2;
   var timeout_sound_ship_acceleration = null;
   canvas.width = canvas.offsetWidth;
   canvas.height = canvas.offsetHeight;
@@ -265,7 +267,7 @@
       this.angle = this.angle ?? Math.random() * 360;
       this.position = this.position ?? [Math.round(Math.random() * (canvas.width - 400) + 200), Math.round(Math.random() * (canvas.height - 400) + 200)];
       this.rotation = this.rotation ?? Math.floor(Math.random() * 360);
-      this.velocity = this.velocity ?? [Math.cos(this.rotation * Math.PI / 180) * 1, Math.sin(this.rotation * Math.PI / 180) * 1];
+      this.velocity = this.velocity ?? [Math.cos(this.rotation * Math.PI / 180) * 2 + 3, Math.sin(this.rotation * Math.PI / 180) * 2 + 3];
       this.rotationVelocity = this.rotationVelocity ?? 6e-4;
       this.points = 1 > this.points.length || !this.points ? this.createPoints() : this.points;
       this.lines = this.points.map((e, i) => [i, (i + 1) % this.points.length]);
@@ -380,7 +382,8 @@
         canDrawClones: false,
         isDead: false,
         position: null,
-        aggressive: false
+        aggressive: false,
+        lastFire: null
       };
     }
     constructor(params = {}) {
@@ -434,6 +437,17 @@
         if (this.position[0] - this.size > canvas.width) {
           this.position = getNewUFOPosition(this.size);
         }
+        this.bullets.forEach((bullet) => {
+          bullet.move();
+          if (collision(bullet, ship)) {
+            ship.explode();
+          }
+          if (isOutOfCanvas(bullet.position)) {
+            this.bullets.splice(this.bullets.indexOf(bullet), 1);
+            return;
+          }
+          bullet.draw();
+        });
         drawEntity(this);
       } catch (error) {
         console.log(error);
@@ -442,7 +456,17 @@
     move() {
       this.position = translatePoints([this.position], this.velocity)[0];
     }
-    fire() {
+    fire(angle = 0) {
+      console.debug({ angle });
+      const { position } = this;
+      const bullet = new Bullet({
+        position,
+        velocity: rotatePoint(this.velocity.map((e) => e * 1.25), angle),
+        size: 5,
+        rotation: angle
+      });
+      this.bullets.push(bullet);
+      playSoundUfoFire();
     }
     rotate() {
       this.points = this.points.map((point) => rotatePoint(point, this.rotationVelocity));
@@ -714,6 +738,10 @@
     soundShipExplosion.currentTime = 0;
     soundShipExplosion.play();
   }
+  function playSoundUfoFire() {
+    soundUfoFire.currentTime = 0;
+    soundUfoFire.play();
+  }
   function getNearestShip(entity) {
     const positions = [ship.position, ...Object.values(getClonesPositions(ship))];
     let minDistance = Infinity;
@@ -731,6 +759,9 @@
     const [x1, y1] = p1;
     const [x2, y2] = p2;
     return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+  }
+  function getAngle([x1, y1], [x2, y2]) {
+    return Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
   }
   var ship = new Ship();
   var ufo = new UFO();
@@ -773,7 +804,7 @@
       }
     },
     teleport: {
-      keys: ["r", "R"],
+      keys: ["Backspace"],
       action: () => {
         ship.teleport();
       }
@@ -852,6 +883,12 @@
             ship.bullets.splice(ship.bullets.indexOf(bullet), 1);
           }
         });
+        ufo.bullets.forEach((bullet) => {
+          if (collision(bullet, _asteroid)) {
+            asteroid.explode();
+            ufo.bullets.splice(ship.bullets.indexOf(bullet), 1);
+          }
+        });
       });
       asteroid.draw();
     });
@@ -862,8 +899,24 @@
     }
     if (!ship.isDead)
       ship.draw();
-    if (!ufo.isDead)
+    if (!ufo.isDead) {
+      if (asteroids.length < 4)
+        ufo.aggressive = true;
+      else
+        ufo.aggressive = false;
       ufo.draw();
+      if (Date.now() - ufo.lastFire > 1e3) {
+        let angle;
+        if (ufo.aggressive) {
+          const nearestShip = getNearestShip(ufo);
+          angle = getAngle(ufo.position, nearestShip);
+        } else {
+          angle = Math.floor(Math.random() * 360);
+        }
+        ufo.fire(angle);
+        ufo.lastFire = Date.now();
+      }
+    }
     if (debug && !ufo.isDead && !ship.isDead) {
       const nearest_ship = getNearestShip(ufo);
       ctx.beginPath();
@@ -884,6 +937,8 @@
         ctx.fillText(`${ship.bullets[0].position}`, 10, 70);
       ctx.fillText(`Asteroids : ${asteroids.length}`, 10, 85);
       ctx.fillText(`Selected Size : ${debug_selected_asteroid_size}`, 10, 100);
+      ctx.fillText(`Rotation : ${ship.rotation}`, 10, 115);
+      ctx.fillText(`UFO Aggressive : ${ufo.aggressive}`, 10, 130);
     }
     lastTime = Date.now();
     requestAnimationFrame(draw);

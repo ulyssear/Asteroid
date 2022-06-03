@@ -33,8 +33,10 @@ const soundShipFire = new Audio('sounds/ship_fire.wav')
 const soundShipExplosion = new Audio('sounds/ship_explosion.wav')
 const soundAsteroidExplosion = new Audio('sounds/explosion.wav')
 const soundShipAcceleration = new Audio('sounds/ship_acceleration.wav')
+const soundUfoFire = new Audio('sounds/ufo_fire.wav')
 
 soundShipAcceleration.volume = 0.4
+soundUfoFire.volume = 0.2
 
 let timeout_sound_ship_acceleration = null
 
@@ -141,18 +143,7 @@ class Ship extends Entity {
                     this.bullets.splice(this.bullets.indexOf(bullet), 1)
                     return
                 }
-                // get asteroids near of bullet
-                // const asteroidsNear = getAsteroidsNear(bullet.position, bullet.size)
-                // check if bullet hit an asteroid
-                /*if (asteroidsNear.length) {
-                    for (let asteroid of asteroidsNear) {
-                        if (intersection(bullet.points.map(e => e.map((v,i) => v+bullet.position[i])), asteroid.points.map(e => e.map((v,i) => v+asteroid.position[i])))) {
-                            asteroid.isHitByBullet = true
-                            this.bullets.splice(this.bullets.indexOf(bullet), 1)
-                            return
-                        }
-                    }
-                }*/
+                
                 bullet.draw()
             })
         } catch (error) {
@@ -321,7 +312,7 @@ class Asteroid extends Entity {
         this.angle = this.angle ?? Math.random() * 360
         this.position = this.position ?? [Math.round(Math.random() * (canvas.width - 400) + 200), Math.round(Math.random() * (canvas.height - 400) + 200)]
         this.rotation = this.rotation ?? Math.floor(Math.random() * 360)
-        this.velocity = this.velocity ?? [Math.cos(this.rotation * Math.PI / 180) * 1, Math.sin(this.rotation * Math.PI / 180) * 1]
+        this.velocity = this.velocity ?? [Math.cos(this.rotation * Math.PI / 180) * 2 + 3, Math.sin(this.rotation * Math.PI / 180) * 2 + 3]
         this.rotationVelocity = this.rotationVelocity ?? 6e-4
         this.points = 1 > this.points.length || !this.points ? this.createPoints() : this.points
         this.lines = this.points.map((e, i) => [i, (i + 1) % this.points.length])
@@ -470,7 +461,8 @@ class UFO extends Entity {
             canDrawClones: false,
             isDead: false,
             position: null,
-            aggressive: false
+            aggressive: false,
+            lastFire: null
         }
     }
 
@@ -528,6 +520,19 @@ class UFO extends Entity {
             if ((this.position[0] - this.size) > canvas.width) {
                 this.position = getNewUFOPosition(this.size)
             }
+            this.bullets.forEach(bullet => {
+                bullet.move()
+                
+                if (collision(bullet, ship)) {
+                    ship.explode()
+                }
+
+                if (isOutOfCanvas(bullet.position)) {
+                    this.bullets.splice(this.bullets.indexOf(bullet), 1)
+                    return
+                }
+                bullet.draw()
+            })
             drawEntity(this)
         } catch (error) {
             console.log(error)
@@ -538,7 +543,19 @@ class UFO extends Entity {
         this.position = translatePoints([this.position], this.velocity)[0]
     }
 
-    fire() {}
+    fire(angle = 0) {
+        console.debug({ angle })
+        const {position} = this
+        // fire from center of UFO
+        const bullet = new Bullet({
+            position,
+            velocity: rotatePoint(this.velocity.map(e => e * 1.25), angle),
+            size: 5,
+            rotation: angle
+        })
+        this.bullets.push(bullet)
+        playSoundUfoFire()
+    }
 
     rotate() {
         this.points = this.points.map(point => rotatePoint(point, this.rotationVelocity))
@@ -906,6 +923,11 @@ function playSoundShipExplosion() {
     soundShipExplosion.play()
 }
 
+function playSoundUfoFire() {
+    soundUfoFire.currentTime = 0
+    soundUfoFire.play()
+}
+
 function getNearestShip(entity) {
     // return the position of nearest ship
     const positions = [ship.position, ...Object.values(getClonesPositions(ship))]
@@ -926,6 +948,10 @@ function getDistance(p1, p2) {
     const [x1, y1] = p1
     const [x2, y2] = p2
     return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+}
+
+function getAngle([x1,y1], [x2,y2]) {
+    return Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI
 }
 
 
@@ -973,7 +999,7 @@ let controls = {
         }
     },
     teleport: {
-        keys: ['r', 'R'],
+        keys: ['Backspace'],
         action: () => {
             ship.teleport()
         }
@@ -1089,6 +1115,15 @@ const draw = () => {
                 }
             })
 
+            // detect collision between bullets and asteroids
+            ufo.bullets.forEach(bullet => {
+                if (collision(bullet, _asteroid)) {
+                    asteroid.explode()
+                    // remove bullet
+                    ufo.bullets.splice(ship.bullets.indexOf(bullet), 1)
+                }
+            })
+
             // detect collision between asteroids and asteroids
             /*asteroids.forEach(asteroid2 => {
                 if (asteroid !== asteroid2 && collision(_asteroid, asteroid2)) {
@@ -1109,7 +1144,26 @@ const draw = () => {
     }
     if (!ship.isDead) ship.draw()
 
-    if (!ufo.isDead) ufo.draw()
+    if (!ufo.isDead) {
+        if (asteroids.length < 4) ufo.aggressive = true
+        else ufo.aggressive = false
+        ufo.draw()
+        // ufo.fire(Math.random() * 2 * Math.PI) all the 3 seconds
+        if (Date.now() - ufo.lastFire > 1000) {
+            let angle // should be a vaue between 0 and 360
+            if (ufo.aggressive) {
+                // get angle between nearest ship and ufo
+                const nearestShip = getNearestShip(ufo)
+                angle = getAngle(ufo.position, nearestShip)
+            }
+            else {
+                // random angle between 0 and 360
+                angle = Math.floor(Math.random() * 360)
+            }
+            ufo.fire(angle)
+            ufo.lastFire = Date.now()
+        }
+    }
 
     // if debug, draw a red line from ufo to the nearest ship (ship and his clones)
     if (debug && !ufo.isDead && !ship.isDead) {
@@ -1136,6 +1190,10 @@ const draw = () => {
         if (ship.bullets[0]) ctx.fillText(`${ship.bullets[0].position}`, 10, 70)
         ctx.fillText(`Asteroids : ${asteroids.length}`, 10, 85)
         ctx.fillText(`Selected Size : ${debug_selected_asteroid_size}`, 10, 100)
+        // ship rotation
+        ctx.fillText(`Rotation : ${ship.rotation}`, 10, 115)
+        // ufo aggresive
+        ctx.fillText(`UFO Aggressive : ${ufo.aggressive}`, 10, 130)
     }
 
     lastTime = Date.now()
