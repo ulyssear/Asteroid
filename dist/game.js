@@ -905,7 +905,7 @@
       else
         ufo.aggressive = false;
       ufo.draw();
-      if (Date.now() - ufo.lastFire > 1e3) {
+      if (Date.now() - ufo.lastFire > 1e3 && (!ship.isDead || 0 < asteroids.length)) {
         let angle;
         if (ufo.aggressive) {
           const nearestShip = getNearestShip(ufo);

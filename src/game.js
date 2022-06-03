@@ -1149,7 +1149,7 @@ const draw = () => {
         else ufo.aggressive = false
         ufo.draw()
         // ufo.fire(Math.random() * 2 * Math.PI) all the 3 seconds
-        if (Date.now() - ufo.lastFire > 1000) {
+        if (Date.now() - ufo.lastFire > 1000 && (!ship.isDead || 0 < asteroids.length)) {
             let angle // should be a vaue between 0 and 360
             if (ufo.aggressive) {
                 // get angle between nearest ship and ufo
