@@ -385,7 +385,9 @@
         isDead: false,
         position: null,
         aggressive: false,
-        lastFire: null
+        cleanMode: false,
+        fire_timeout: 1e3,
+        lastFire: Date.now()
       };
     }
     constructor(params = {}) {
@@ -745,7 +747,10 @@
     soundUfoFire.play();
   }
   function getNearestShip(entity) {
-    const positions = [ship.position, ...Object.values(getClonesPositions(ship))];
+    return getNearestEntity(ship, entity);
+  }
+  function getNearestEntity(entity_reference, entity) {
+    const positions = [entity_reference.position, ...Object.values(getClonesPositions(entity_reference))];
     let minDistance = Infinity;
     let nearestPosition = null;
     for (const position of positions) {
@@ -756,6 +761,19 @@
       }
     }
     return nearestPosition;
+  }
+  function getNearestAsteroid(entity) {
+    let minDistance = Infinity;
+    let nearestAsteroid = null;
+    for (const asteroid of asteroids) {
+      const _nearestAsteroid = getNearestEntity(asteroid, entity);
+      const distance = getDistance(entity.position, _nearestAsteroid);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestAsteroid = asteroid;
+      }
+    }
+    return nearestAsteroid;
   }
   function getDistance(p1, p2) {
     const [x1, y1] = p1;
@@ -901,19 +919,34 @@
     }
     if (!ship.isDead)
       ship.draw();
+    else {
+      if (!ufo.isDead && !ufo.cleanMode) {
+        ufo.cleanMode = true;
+        ufo.fire_timeout = 250;
+      }
+      if (!ufo.isDead && ufo.cleanMode && 1 > asteroids.length) {
+        ufo.cleanMode = false;
+        ufo.fire_timeout = 1e3;
+      }
+    }
     if (!ufo.isDead) {
-      if (asteroids.length < 4)
+      if (asteroids.length < 4 && !ship.isDead)
         ufo.aggressive = true;
       else
         ufo.aggressive = false;
       ufo.draw();
-      if (Date.now() - ufo.lastFire > 1e3 && (!ship.isDead || 0 < asteroids.length)) {
+      if (Date.now() - ufo.lastFire > ufo.fire_timeout && (!ship.isDead || 0 < asteroids.length)) {
         let angle;
         if (ufo.aggressive) {
           const nearestShip = getNearestShip(ufo);
           angle = getAngle(ufo.position, nearestShip);
         } else {
-          angle = Math.floor(Math.random() * 360);
+          if (ufo.cleanMode) {
+            const nearestAsteroid = getNearestAsteroid(ufo);
+            angle = getAngle(ufo.position, translatePoints([nearestAsteroid.position], nearestAsteroid.velocity.map((e) => e * 1.3))[0]);
+          } else {
+            angle = Math.floor(Math.random() * 360);
+          }
         }
         ufo.fire(angle);
         ufo.lastFire = Date.now();
