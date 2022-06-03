@@ -1182,7 +1182,7 @@ const draw = () => {
     else {
         if (!ufo.isDead && !ufo.cleanMode) {
             ufo.cleanMode = true
-            ufo.fire_timeout = 250
+            ufo.fire_timeout = 300
         }
         if (!ufo.isDead && ufo.cleanMode && 1 > asteroids.length) {
             ufo.cleanMode = false
@@ -1205,9 +1205,10 @@ const draw = () => {
             else {
                 if (ufo.cleanMode) {
                     // angle nearest asteroid
-                    const nearestAsteroid = getNearestAsteroid(ufo)
+                    // const nearestAsteroid = getNearestAsteroid(ufo)
+                    const nearestAsteroid = asteroids[Math.floor(Math.random() * asteroids.length)]
                     // get angle between nearest asteroid and ufo
-                    angle = getAngle(ufo.position, translatePoints([nearestAsteroid.position], nearestAsteroid.velocity.map(e => e * 1.3))[0])
+                    angle = getAngle(ufo.position, translatePoints([nearestAsteroid.position], nearestAsteroid.velocity.map(e => e * 1.5))[0])
                 }
                 else {
                     // random angle between 0 and 360

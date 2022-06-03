@@ -762,19 +762,6 @@
     }
     return nearestPosition;
   }
-  function getNearestAsteroid(entity) {
-    let minDistance = Infinity;
-    let nearestAsteroid = null;
-    for (const asteroid of asteroids) {
-      const _nearestAsteroid = getNearestEntity(asteroid, entity);
-      const distance = getDistance(entity.position, _nearestAsteroid);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearestAsteroid = asteroid;
-      }
-    }
-    return nearestAsteroid;
-  }
   function getDistance(p1, p2) {
     const [x1, y1] = p1;
     const [x2, y2] = p2;
@@ -922,7 +909,7 @@
     else {
       if (!ufo.isDead && !ufo.cleanMode) {
         ufo.cleanMode = true;
-        ufo.fire_timeout = 250;
+        ufo.fire_timeout = 300;
       }
       if (!ufo.isDead && ufo.cleanMode && 1 > asteroids.length) {
         ufo.cleanMode = false;
@@ -942,8 +929,8 @@
           angle = getAngle(ufo.position, nearestShip);
         } else {
           if (ufo.cleanMode) {
-            const nearestAsteroid = getNearestAsteroid(ufo);
-            angle = getAngle(ufo.position, translatePoints([nearestAsteroid.position], nearestAsteroid.velocity.map((e) => e * 1.3))[0]);
+            const nearestAsteroid = asteroids[Math.floor(Math.random() * asteroids.length)];
+            angle = getAngle(ufo.position, translatePoints([nearestAsteroid.position], nearestAsteroid.velocity.map((e) => e * 1.5))[0]);
           } else {
             angle = Math.floor(Math.random() * 360);
           }
