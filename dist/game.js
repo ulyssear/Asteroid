@@ -348,9 +348,11 @@
     rotate() {
       this.points = this.points.map((point) => rotatePoint(point, this.rotationVelocity));
     }
-    static generate(n = 1, asteroids2 = []) {
+    static generate(n = 1, asteroids2 = [], sizeMin = 8, sizeMax = 23) {
       if (n > 0) {
-        const asteroid = new Asteroid();
+        const asteroid = new Asteroid({
+          size: Math.floor(Math.random() * (sizeMax - sizeMin) + sizeMin)
+        });
         const isColliding = false;
         if (!isColliding) {
           asteroids2.push(asteroid);
@@ -765,7 +767,7 @@
   }
   var ship = new Ship();
   var ufo = new UFO();
-  var asteroids = Asteroid.generate(0);
+  var asteroids = Asteroid.generate(4);
   var controls = {
     "rotate left": {
       keys: ["ArrowLeft", "q", "Q"],

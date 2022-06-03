@@ -420,9 +420,11 @@ class Asteroid extends Entity {
         this.points = this.points.map(point => rotatePoint(point, this.rotationVelocity))
     }
 
-    static generate(n = 1, asteroids = []) {
+    static generate(n = 1, asteroids = [], sizeMin = 8, sizeMax = 23) {
         if (n > 0) {
-            const asteroid = new Asteroid()
+            const asteroid = new Asteroid({
+                size: Math.floor(Math.random() * (sizeMax - sizeMin) + sizeMin),
+            })
 
             const isColliding = false
 
@@ -959,7 +961,7 @@ const ship = new Ship()
 
 const ufo = new UFO()
 
-const asteroids = Asteroid.generate(0)
+const asteroids = Asteroid.generate(4)
 
 let controls = {
     'rotate left': {
